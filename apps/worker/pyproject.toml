@@ -1,0 +1,54 @@
+[project]
+name = "worker"
+version = "0.1.0"
+description = "Backlink bot worker"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "charset-normalizer>=3.5.2",
+    "httpx[brotli,http2]>=0.28.1",
+    "protego>=0.7.0",
+    "psycopg[binary,pool]>=3.3.6",
+    "pydantic>=2.13.5",
+    "pydantic-settings>=2.15.0",
+    "selectolax>=1.0.0",
+    "snowballstemmer>=3.1.1",
+    "structlog>=26.1.0",
+    "tenacity>=9.2.1",
+    "tldextract>=5.4.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0",
+    "pytest-asyncio>=1.0",
+    "respx>=0.23",
+    "hypothesis>=6.0",
+    "testcontainers>=4.0",
+    "ruff>=0.16",
+    "mypy>=2.0",
+    "pip-audit>=2.0",
+]
+
+[build-system]
+requires = ["uv_build>=0.9.0,<0.10.0"]
+build-backend = "uv_build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+markers = [
+  "unit: no external services",
+  "integration: needs DB",
+]
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "ASYNC"]
+
+[tool.mypy]
+strict = true
+python_version = "3.12"

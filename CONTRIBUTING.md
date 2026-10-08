@@ -1,0 +1,3 @@
+- Conventional commits (feat:, fix:, chore:, docs:, test:)
+- One S-task per PR. Follow the Definition of Done in the PR template.
+- Config is data, not code. No paid services except Serper.
