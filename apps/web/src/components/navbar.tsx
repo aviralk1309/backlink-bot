@@ -1,12 +1,24 @@
 import Link from "next/link";
-import { NAV_ITEMS } from "@/lib/nav";
+import { LogoutButton } from "@/features/auth/logout-button";
 
-export function Navbar() {
+type NavItem = { readonly label: string; readonly href: string };
+
+export function Navbar({
+  items,
+  userName,
+  roleName,
+}: {
+  items: readonly NavItem[];
+  userName: string;
+  roleName: string;
+}) {
   return (
     <header className="border-b">
       <nav className="mx-auto flex h-14 max-w-7xl items-center gap-6 px-4">
-        <span className="font-semibold">Backlink Bot</span>
-        {NAV_ITEMS.map((i) => (
+        <Link href="/" className="font-semibold">
+          Backlink Bot
+        </Link>
+        {items.map((i) => (
           <Link
             key={i.href}
             href={i.href}
@@ -15,6 +27,13 @@ export function Navbar() {
             {i.label}
           </Link>
         ))}
+        <div className="ml-auto flex items-center gap-3">
+          <div className="text-right text-xs leading-tight">
+            <div className="font-medium">{userName}</div>
+            <div className="text-muted-foreground">{roleName}</div>
+          </div>
+          <LogoutButton />
+        </div>
       </nav>
     </header>
   );

@@ -21,6 +21,57 @@ Serper is the only paid service. Everything else must run free or on infrastruct
 
 ---
 
+## 2.5. Business invariants
+
+These rules must hold in every MVP:
+
+- **I1 Cost:** Serper is the only paid service. No paid LLM, crawler, proxy or SEO API.
+- **I2 Bot discovers and ranks. People decide.** The bot never marks anything Approved or Rejected.
+- **I3 Nothing is silently deleted.** Failed, unchecked and auto-filtered results are stored with a reason.
+- **I4 "Could not check" is not "fail."** Unchecked results stay in the list, ranked lower.
+- **I5 Budget is counted in credits actually consumed**, as reported by Serper per call.
+- **I6 Competitor gap runs first**, then Google footprint search.
+- **I7 Duplicates:** unique on (job, normalized URL). Repeat discovery adds a "found by" record and bumps the duplicates counter. The same URL can exist in different jobs.
+- **I8 Job edits apply to future queries and checks only.** They never rewrite stored results.
+- **I9 Score is for ordering, not a quality verdict.** Weights are configuration.
+- **I10 Top 3 reasons** are shown on each ranked row.
+- **I11 Polite fetching:** identifies itself, respects robots.txt, rate-limits per domain, plain HTTP only (no headless browser).
+- **I12 Service key never reaches the browser.** Roles are enforced by RLS.
+- **I13 Admin cannot be locked out:** the Admin role cannot be deleted or stripped of role-management permission.
+- **I14 Reject reason is required when rejecting.** Spam rejects are global. Off-topic rejects are niche-scoped.
+- **I15 Success metric** is approval rate of the top 50 results, not rows stored.
+
+---
+
+## 2.6. Spec gaps and defaults
+
+These gaps were identified during MVP planning and have default resolutions:
+
+| ID | Gap | Default |
+|---|---|---|
+| G1 | "Stop ends the job" but no "Stopped" status exists | Add terminal status `Stopped` |
+| G2 | "Failed" is never defined | Job becomes Failed only on unrecoverable config/system error, or when every query row fails |
+| G3 | "Saturated" auto-pause - is it resumable? | Yes, with confirmation |
+| G4 | When Saturated/budget-reached/Stopped, do pending checks finish? | Stop halts everything; Saturation stops new queries only, pending checks drain |
+| G5 | How does "Ready for review" top 50 behave? | Ready holds at most N undecided rows; new higher-scored rows never evict shown rows; "Release next batch" pulls from Backlog |
+| G6 | Job form has "reference sites", "own seed lists", "competitor domains" | Seed list URLs imported as opportunities; competitor domains label CSV uploads and are excluded; reference sites stored and excluded |
+| G7 | "Local business data" has no use in v1 | Stored on job only; not used by v1 query templates |
+| G8 | Off-topic reject is niche-scoped - what is the niche key? | Normalized (business_type, sub_niche) |
+| G9 | Difference between "spam-rejected flag" and "global blocklist" | Flag = warning with per-job skip option; Blocklist = hard auto-filter, never fetched |
+| G10 | Overlap boost counts what? | Distinct competitor labels linking to the domain |
+| G11 | "New unique domain" for saturation | A registered domain not yet seen in this job from any source |
+| G12 | What makes a result "Unchecked"? | Any essential check returns could-not-check, or domain check cap hit |
+| G13 | Reviewer assignment not in spec | "In review" is soft claim by one reviewer with visible name; no hard assignment |
+| G14 | Domain cache lifetime and per-domain cap URL priority | TTL 7 days; first N URLs by: overlap count desc, multi-query count desc, discovery order |
+| G15 | Who can add to blocklist and mark "Used"? | Permission-based: `blocklist.manage` and `results.review` |
+| G16 | Success metric exact definition | Top-50 approval rate = (Approved + Used) / (Approved + Used + Rejected) among first Ready batch rows with a decision |
+| G17 | Backlog release batch size | 25 rows |
+| G18 | Client CSV exists - Google results from domains already linking to client | Flag `already_links_to_client`; not removed |
+| G19 | Data retention and storage size | Never store page bodies; store title, meta, headings snippet and signals only |
+| G20 | Reject reasons - "other" needs a note? | Note required when reason = other |
+
+---
+
 ## 3. How it works
 
 1. An admin creates a **Search Backlinks** job and fills in the job form.
@@ -41,10 +92,12 @@ Roles and permissions are **fully custom and dynamic**, and the role builder scr
 | Starter role | Access |
 |---|---|
 | Admin | Create, edit, delete and start jobs; manage users and assign roles |
-| Product team | View results, review and verify opportunities, upload CSVs, export |
+| Manager | Reviews and verifies results, uploads CSVs, exports, manages the blocklist |
 | Viewer | Read-only |
 
 Roles are enforced with Supabase row-level security. The bot workers use a server-side service key and are never exposed to the browser.
+
+**Note:** The "Manager" role replaces the earlier "Product team" terminology. See [MVP 1](#) for the permission catalog.
 
 ---
 
@@ -148,11 +201,23 @@ Everything is stored in the database, including failed and unchecked results (ma
 ## 8. Job engine and controls
 
 - **Work units:** every query is a row (pending, running, done, failed). Workers claim rows from Postgres using `FOR UPDATE SKIP LOCKED`. No extra queue service is needed. Each claimed row has a lease time, so rows left "running" by a crashed worker return to the queue automatically.
-- **Pause** stops workers from claiming new rows. **Resume** continues. **Stop** ends the job. A worker crash only loses the row in progress, which is retried.
-- **Statuses:** Draft, Queued, Running, Paused, Completed, Failed, Saturated
+- **Pause** stops workers from claiming new rows. **Resume** continues. **Stop** ends the job with a new **Stopped** terminal status. A worker crash only loses the row in progress, which is retried.
+- **Statuses:** Draft, Queued, Running, Paused, Completed, Failed, Saturated, **Stopped**
 - **Live counters:** credits used vs budget, queries done vs total, unique opportunities found, duplicates skipped, unchecked count
-- **Saturation rule (default):** if the last N completed queries (default 20) added fewer than X new unique domains (default 3), the job auto-pauses as Saturated. N and X are configurable per job. This applies to Google searches only, not to the competitor CSV source.
+- **Saturation rule (default):** if the last N completed queries (default 20) added fewer than X new unique domains (default 3), the job auto-pauses as Saturated. N and X are configurable per job. Saturation is resumable (resume asks for confirmation) and is re-evaluated after N more completed queries. This applies to Google searches only, not to the competitor CSV source.
 - A job stops on its own when the query list is finished, the credit budget is reached, or it is saturated.
+- **Stop vs Saturation behavior:** Stop (explicit) halts everything, including checks. Saturation and budget-reached stop claiming new queries only; pending checks drain so found results get scored.
+
+**State machine transitions:**
+| From | Action | To | Who |
+|---|---|---|---|
+| Draft | start | Queued | `jobs.start` |
+| Queued | worker picks up | Running | worker |
+| Running | pause | Paused | `jobs.control` |
+| Paused | resume | Running | `jobs.control` |
+| Running/Paused/Saturated | stop | Stopped | `jobs.control` |
+| Running | auto | Saturated/Completed/Failed | worker |
+| Saturated | resume | Running | `jobs.control`
 
 ---
 
@@ -219,12 +284,34 @@ Forum, directory and others are added the same way in later phases.
 
 ## 14. Scope and phases
 
-**Phase 1 (MVP), in build order:**
-1. Job form, job controls, dynamic roles and permissions (role builder screen) with three starter roles
-2. **Competitor gap first:** competitor and client CSV uploads, mapping templates, domain-level gap
-3. URL normalization, free checks, scoring, ranking, review queue, domain grouping
-4. Review workflow with reject reasons, export, basic feedback reporting
-5. Footprint search (Serper) for guest post and resource page
+The project is split into 11 MVPs (M0 to M10). Build order follows spec Section 14: roles first, then competitor gap, then checks and review, then Serper search. Parallel work is possible where dependencies allow.
+
+**MVP Map:**
+| MVP | Name | Spec sections covered |
+|---|---|---|
+| M0 | Foundation and project setup | 2, 12 |
+| M1 | Identity, roles and permissions | 4, 11 (users, roles) |
+| M2 | Jobs, job form and activity profiles | 3, 5, 8 (statuses), 13 |
+| M3 | Pipeline backbone: URL rules, storage, worker engine | 7, 8, 9, 11 |
+| M4 | Competitor gap (CSV) | 6.2 |
+| M5 | Free checks, scoring, tiers, queue groups | 6.3, 6.4, 6.5 (groups), 6.6 |
+| M6 | Review workflow, export | 6.5, 9, 10 (capture, reject scope) |
+| M7 | Feedback reporting and blocklist | 10 (v1 reporting) |
+| M8 | Footprint search via Serper, budget, saturation | 6.1, 8 |
+| M9 | Hardening, deployment, UAT | 2 (hosting), all |
+| M10 | Phase 2 backlog (not built now) | 14 Phase 2 and Later |
+
+**Build order (Phase 1 - MVP):**
+1. **M0:** Foundation - repository, tooling, Supabase, scaffolding, CI, containerization
+2. **M1:** Identity - roles, permissions, authentication, user management, role builder
+3. **M2:** Jobs - job form, activity profiles, job lifecycle, blocklist
+4. **M3:** Pipeline - URL rules, storage, worker engine, counters
+5. **M4:** Competitor gap - CSV uploads, mapping, gap calculation
+6. **M5:** Free checks - HTTP fetcher, scoring, tiers, queue groups
+7. **M6:** Review workflow - approval/rejection, export, feedback capture
+8. **M7:** Feedback reporting and blocklist management
+9. **M8:** Footprint search - Serper integration, budget tracking, saturation
+10. **M9:** Hardening - deployment, UAT, production readiness
 
 **Phase 2:**
 - More activities (forum, directory)
@@ -244,3 +331,27 @@ Forum, directory and others are added the same way in later phases.
 2. Confirm hosting for dashboard, database and an always-on worker stays within free tiers
 3. Confirm default saturation values and per-domain cap with real job data after the first runs
 4. MVP split of the full project, if different from section 14
+
+---
+
+## 16. Architecture Decision Records (ADRs)
+
+Key architectural decisions documented in `docs/adr/`:
+
+| ADR | Decision | Rationale |
+|-----|----------|-----------|
+| 0001 | Modular monolith | Single deploy unit, shared infrastructure |
+| 0002 | Postgres as queue | No extra service, uses `FOR UPDATE SKIP LOCKED` |
+| 0003 | Direct PG worker | Worker talks to Postgres directly with `psycopg` |
+| 0004 | Permission catalog | Centralized, migration-controlled permissions |
+| 0005 | Config versioning | Job edits create new `config_version`; never rewrite results |
+| 0006 | Opportunity state machine | Pipeline per opportunity as state machine |
+| 0007 | Fetcher SSRF guards | Security for URL fetching |
+| 0008 | CSV in worker | Avoids web request timeouts |
+| 0009 | Polling counters | Dashboard polls counters every few seconds |
+| 0010 | Search provider interface | Swappable search backends |
+| 0011 | Local-first hosting | Development convenience |
+| 0012 | roles.manage is admin-equivalent | Simplifies permission model |
+| 0013 | Forbidden page status | No access page returns 200 status |
+
+See `docs/adr/README.md` for the full list and details.

@@ -1,6 +1,8 @@
 # Backlink Discovery Bot: MVP Breakdown and Task Plan
 
-Source: *Product Overview v2 (revised)*. This plan splits the product into 11 MVPs (M0 to M10). Each MVP has build tasks (S-tasks) that an LLM agent or developer can pick up, and a separate block of human-owned decisions and manual work.
+Source: *Product Overview v2 (revised)* in `README.md`. This plan splits the product into 11 MVPs (M0 to M10). Each MVP has build tasks (S-tasks) that an LLM agent or developer can pick up, and a separate block of human-owned decisions and manual work.
+
+**Note:** This document and `README.md` should be kept in sync. When requirements change in one, update the other accordingly.
 
 ---
 
@@ -224,7 +226,7 @@ Build seed with these keys (extend only via migration):
 
 Seed three roles (`is_system=true`):
 - **Admin**: all permissions. Protected.
-- **Product team**: `jobs.view`, `results.view`, `results.view_filtered`, `results.review`, `results.export`, `results.release_batch`, `csv.upload`, `mapping_templates.manage`, `reports.view`. Default for `blocklist.manage`: yes (see M1-P2).
+- **Manager**: `jobs.view`, `results.view`, `results.view_filtered`, `results.review`, `results.export`, `results.release_batch`, `csv.upload`, `mapping_templates.manage`, `blocklist.manage`, `reports.view`. Note: This replaces the earlier "Product team" terminology.
 - **Viewer**: `jobs.view`, `results.view`, `reports.view`.
 Done when: seed is idempotent and a test asserts the mapping.
 
@@ -272,7 +274,7 @@ Build: pgTAP RLS matrix, lockout tests, Playwright: login, build role, assign ro
 
 **Product team decisions**
 - **M1-P1** Approve the permission catalog and starter role mapping above.
-- **M1-P2** Can Product team add to the global blocklist? (G15)
+- **M1-P2** Can Manager role add to the global blocklist? (G15)
 - **M1-P3** Password and session policy; email domain restriction for invites.
 
 **Product team manual work**

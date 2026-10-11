@@ -1,1 +1,6 @@
--- seed data arrives in M1 (roles, permissions)
+-- Intentionally empty.
+-- Roles, permissions and the starter role grants are seeded by migrations,
+-- because the app and the tests depend on them (see
+-- migrations/*_m1_seed_permissions_roles.sql).
+-- Create the first Admin with: cd apps/web && pnpm bootstrap:admin
+-- (docs/runbooks/bootstrap-admin.md).

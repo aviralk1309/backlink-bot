@@ -1,4 +1,4 @@
-.PHONY: setup check db-start db-stop db-reset db-test types dev-web dev-worker
+.PHONY: setup check db-start db-stop db-reset db-test types dev-web dev-worker e2e
 
 setup:
 	pre-commit install --install-hooks
@@ -24,9 +24,15 @@ db-test:
 
 types:
 	supabase gen types typescript --local > apps/web/src/lib/database.types.ts
+	cd apps/web && pnpm prettier --write src/lib/database.types.ts
 
 dev-web:
 	cd apps/web && pnpm dev
 
 dev-worker:
 	cd apps/worker && uv run python -m worker
+
+e2e:
+	cd apps/web && pnpm e2e
+
+db-verify: db-reset db-test
