@@ -52,5 +52,10 @@
     "typescript": "^5",
     "vitest": "^5.0.3"
   },
-  "packageManager": "pnpm@10.29.1"
+  "packageManager": "pnpm@10.29.1",
+  "pnpm": {
+    "overrides": {
+      "braces": "npm:@dieub/braces-depth-guard@3.0.3-pn.3"
+    }
+  }
 }
