@@ -1,8 +1,22 @@
 import Link from "next/link";
+import { Suspense } from "react";
 import { format } from "date-fns";
+import { ChevronRight, Search, Users as UsersIcon } from "lucide-react";
+import { PageSkeleton } from "@/components/app-skeletons";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Input } from "@/components/ui/input";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { InviteForm } from "@/features/users/invite-form";
 import { listRoles, listUsers } from "@/features/users/queries";
-import { Suspense } from "react";
 import {
   parseFilter,
   STATUS_FILTERS,
@@ -11,30 +25,31 @@ import {
 import type { UserRow } from "@/features/users/types";
 import { UserActions } from "@/features/users/user-actions";
 import { requirePagePermission } from "@/lib/auth/guard";
+import { cn } from "@/lib/utils";
 
-const STATUS_STYLE: Record<UserRow["status"], string> = {
-  pending: "bg-amber-100 text-amber-900 dark:bg-amber-950 dark:text-amber-200",
-  active: "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200",
-  rejected: "bg-red-100 text-red-900 dark:bg-red-950 dark:text-red-200",
-  deactivated: "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200",
-};
-type Props = { searchParams: Promise<{ status?: string }> };
+const STATUS_TONE = {
+  pending: "warning",
+  active: "success",
+  rejected: "danger",
+  deactivated: "neutral",
+} as const satisfies Record<
+  UserRow["status"],
+  "warning" | "success" | "danger" | "neutral"
+>;
 
-function StatusBadge({ status }: { status: UserRow["status"] }) {
-  return (
-    <span
-      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[status]}`}
-    >
-      {status}
-    </span>
-  );
+type Props = { searchParams: Promise<{ status?: string; q?: string }> };
+
+function filterHref(filter: StatusFilter, q: string) {
+  const params = new URLSearchParams();
+  if (filter !== "all") params.set("status", filter);
+  if (q) params.set("q", q);
+  const query = params.toString();
+  return query ? `/admin/users?${query}` : "/admin/users";
 }
 
 export default function AdminUsersPage({ searchParams }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <UsersContent searchParams={searchParams} />
     </Suspense>
   );
@@ -43,7 +58,10 @@ export default function AdminUsersPage({ searchParams }: Props) {
 async function UsersContent({ searchParams }: Props) {
   const session = await requirePagePermission("users.manage");
 
-  const filter: StatusFilter = parseFilter((await searchParams).status);
+  const sp = await searchParams;
+  const filter: StatusFilter = parseFilter(sp.status);
+  const q = (sp.q ?? "").trim().slice(0, 100);
+  const needle = q.toLowerCase();
   const [users, roles] = await Promise.all([listUsers(), listRoles()]);
 
   const counts: Record<StatusFilter, number> = {
@@ -57,10 +75,18 @@ async function UsersContent({ searchParams }: Props) {
 
   const shown = users
     .filter((u) => filter === "all" || u.status === filter)
+    .filter(
+      (u) =>
+        !needle ||
+        u.email.toLowerCase().includes(needle) ||
+        (u.full_name || "").toLowerCase().includes(needle),
+    )
     // Pending requests first, so nothing waiting for approval gets buried.
     .sort(
       (a, b) => Number(b.status === "pending") - Number(a.status === "pending"),
     );
+
+  const filtered = q !== "" || filter !== "all";
 
   return (
     <div className="space-y-6">
@@ -71,52 +97,109 @@ async function UsersContent({ searchParams }: Props) {
         </p>
       </div>
 
-      <details className="rounded-md border p-4">
-        <summary className="cursor-pointer text-sm font-medium">
+      <details className="group bg-card rounded-xl border">
+        <summary className="focus-visible:ring-ring flex cursor-pointer list-none items-center gap-2 rounded-xl px-4 py-3 text-sm font-medium outline-none focus-visible:ring-2 pointer-coarse:min-h-11 [&::-webkit-details-marker]:hidden">
+          <ChevronRight
+            aria-hidden
+            className="text-muted-foreground size-4 transition-transform group-open:rotate-90 motion-reduce:transition-none"
+          />
           Invite a user
         </summary>
-        <InviteForm roles={roles} />
+        <div className="border-t px-4 pb-4">
+          <InviteForm roles={roles} />
+        </div>
       </details>
 
-      <nav aria-label="Filter by status" className="flex flex-wrap gap-2">
-        {STATUS_FILTERS.map((f) => (
-          <Link
-            key={f}
-            href={f === "all" ? "/admin/users" : `/admin/users?status=${f}`}
-            aria-current={f === filter ? "page" : undefined}
-            className={`rounded-full border px-3 py-1 text-sm capitalize ${
-              f === filter
-                ? "bg-foreground text-background"
-                : "text-muted-foreground hover:text-foreground"
-            }`}
-          >
-            {f} ({counts[f]})
-          </Link>
-        ))}
-      </nav>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <nav
+          aria-label="Filter by status"
+          className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1"
+        >
+          {STATUS_FILTERS.map((f) => (
+            <Link
+              key={f}
+              href={filterHref(f, q)}
+              aria-current={f === filter ? "page" : undefined}
+              className={cn(
+                "focus-visible:ring-ring inline-flex h-9 shrink-0 items-center rounded-lg px-3 text-sm font-medium capitalize transition-colors outline-none focus-visible:ring-2 pointer-coarse:h-11",
+                f === filter
+                  ? "bg-accent text-accent-foreground"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground",
+              )}
+            >
+              {f} ({counts[f]})
+            </Link>
+          ))}
+        </nav>
+
+        <form
+          role="search"
+          action="/admin/users"
+          className="flex w-full gap-2 sm:max-w-sm"
+        >
+          {filter !== "all" ? (
+            <input type="hidden" name="status" value={filter} />
+          ) : null}
+          <div className="relative flex-1">
+            <Search
+              aria-hidden
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+            />
+            <Input
+              type="search"
+              name="q"
+              defaultValue={q}
+              placeholder="Search name or email"
+              aria-label="Search users"
+              className="pl-8"
+            />
+          </div>
+          <Button type="submit" variant="outline">
+            Search
+          </Button>
+        </form>
+      </div>
 
       {shown.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No users here.</p>
+        <EmptyState
+          icon={<UsersIcon />}
+          title={filtered ? "No users match" : "No users yet"}
+          description={
+            filtered
+              ? "Try a different search or status."
+              : "Invite someone to get started."
+          }
+          action={
+            filtered ? (
+              <Link
+                href="/admin/users"
+                className={buttonVariants({ variant: "outline" })}
+              >
+                Clear filters
+              </Link>
+            ) : undefined
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
-              <tr>
-                <th className="px-4 py-2 font-medium">User</th>
-                <th className="px-4 py-2 font-medium">Status</th>
-                <th className="px-4 py-2 font-medium">Role</th>
-                <th className="px-4 py-2 font-medium">Joined</th>
-                <th className="px-4 py-2 font-medium">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+        <div className="bg-card rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>User</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Joined</TableHead>
+                <TableHead>Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {shown.map((u) => (
-                <tr key={u.id} className="align-top">
-                  <td className="px-4 py-3">
+                <TableRow key={u.id} className="align-top">
+                  <TableCell className="px-4 py-3">
                     <div className="font-medium">
                       {u.full_name || "(no name)"}
                       {u.id === session.userId ? (
-                        <span className="text-muted-foreground ml-2 text-xs font-normal">
+                        <span className="bg-accent text-accent-foreground ml-2 rounded-full px-1.5 py-0.5 text-xs font-normal">
                           you
                         </span>
                       ) : null}
@@ -124,25 +207,32 @@ async function UsersContent({ searchParams }: Props) {
                     <div className="text-muted-foreground text-xs">
                       {u.email}
                     </div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <StatusBadge status={u.status} />
-                  </td>
-                  <td className="px-4 py-3">{u.role_name ?? "—"}</td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <StatusBadge
+                      tone={STATUS_TONE[u.status]}
+                      className="capitalize"
+                    >
+                      {u.status}
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {u.role_name ?? "—"}
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
                     {format(new Date(u.created_at), "d MMM yyyy")}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="min-w-72 px-4 py-3 whitespace-normal">
                     <UserActions
                       user={u}
                       roles={roles}
                       isSelf={u.id === session.userId}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

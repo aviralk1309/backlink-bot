@@ -1,16 +1,17 @@
 import Link from "next/link";
 import { Suspense } from "react";
+import { ArrowLeft } from "lucide-react";
+import { PageSkeleton } from "@/components/app-skeletons";
 import { getRoleDetail, listPermissions } from "@/features/roles/queries";
 import { RoleForm, type RoleFormValues } from "@/features/roles/role-form";
 import { cloneName, groupPermissions } from "@/features/roles/rules";
 import { requirePagePermission } from "@/lib/auth/guard";
+
 type Props = { searchParams: Promise<{ from?: string }> };
 
 export default function NewRolePage({ searchParams }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <NewRoleContent searchParams={searchParams} />
     </Suspense>
   );
@@ -47,12 +48,13 @@ async function NewRoleContent({ searchParams }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <Link
           href="/admin/roles"
-          className="text-muted-foreground hover:text-foreground text-sm"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded text-sm outline-none focus-visible:ring-2"
         >
-          ← Roles
+          <ArrowLeft aria-hidden className="size-4" />
+          Roles
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">New role</h1>
         <p className="text-muted-foreground text-sm">

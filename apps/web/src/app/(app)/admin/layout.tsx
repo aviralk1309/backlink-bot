@@ -20,7 +20,7 @@ async function AdminNav() {
 export default function AdminLayout({ children }: { children: ReactNode }) {
   return (
     <>
-      <Suspense fallback={<div className="mb-6 h-8" />}>
+      <Suspense fallback={<div className="mb-6 h-11" />}>
         <AdminNav />
       </Suspense>
       {children}

@@ -2,9 +2,13 @@
 
 import Link from "next/link";
 import { useActionState, useMemo, useState } from "react";
+import { Loader2, Search } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormState } from "@/lib/auth/schemas";
+import { cn } from "@/lib/utils";
 import { saveRoleAction } from "./actions";
 import {
   enforceLocked,
@@ -27,6 +31,8 @@ export type RoleFormValues = {
 };
 
 const isLocked = (locked: LockedMap, key: string) => Object.hasOwn(locked, key);
+
+const CHECKBOX = "accent-primary size-4 shrink-0 pointer-coarse:size-5";
 
 export function RoleForm({
   groups,
@@ -68,11 +74,7 @@ export function RoleForm({
         <input key={k} type="hidden" name="permission_keys" value={k} />
       ))}
 
-      {state.error ? (
-        <p role="alert" className="text-destructive text-sm">
-          {state.error}
-        </p>
-      ) : null}
+      {state.error ? <Notice tone="error">{state.error}</Notice> : null}
 
       <div className="grid gap-4 sm:grid-cols-2">
         <div className="space-y-1.5">
@@ -94,14 +96,13 @@ export function RoleForm({
             Description{" "}
             <span className="text-muted-foreground">(optional)</span>
           </label>
-          <textarea
+          <Textarea
             id="role_description"
             name="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             maxLength={200}
             rows={2}
-            className="border-input bg-background w-full rounded-lg border px-2.5 py-1.5 text-sm"
           />
         </div>
       </div>
@@ -116,7 +117,11 @@ export function RoleForm({
               {selected.size} of {total} selected
             </p>
           </div>
-          <div className="w-full sm:w-64">
+          <div className="relative w-full sm:w-64">
+            <Search
+              aria-hidden
+              className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+            />
             <Input
               type="search"
               value={query}
@@ -124,6 +129,7 @@ export function RoleForm({
               placeholder="Search permissions…"
               aria-label="Search permissions"
               autoComplete="off"
+              className="pl-8"
             />
           </div>
         </div>
@@ -143,12 +149,13 @@ export function RoleForm({
                 key={g.name}
                 role="group"
                 aria-label={g.name}
-                className="rounded-md border"
+                className="bg-card overflow-hidden rounded-xl border"
               >
-                <div className="bg-muted/50 flex items-center justify-between gap-3 border-b px-4 py-2">
-                  <label className="flex items-center gap-2 text-sm font-medium">
+                <div className="bg-muted/50 flex items-center justify-between gap-3 border-b px-4 py-3">
+                  <label className="flex items-center gap-3 text-sm font-medium">
                     <input
                       type="checkbox"
+                      className={CHECKBOX}
                       checked={gState === "all"}
                       disabled={allLocked}
                       ref={(el) => {
@@ -169,18 +176,20 @@ export function RoleForm({
                   {g.permissions.map((p) => {
                     const lockReason = locked[p.key];
                     return (
-                      <li key={p.key} className="px-4 py-2">
-                        <label className="flex items-start gap-2 text-sm">
+                      <li key={p.key}>
+                        <label className="hover:bg-muted/50 flex cursor-pointer items-start gap-3 px-4 py-3 text-sm transition-colors has-[input:disabled]:cursor-not-allowed">
                           <input
                             type="checkbox"
-                            className="mt-0.5"
+                            className={cn(CHECKBOX, "mt-0.5")}
                             checked={selected.has(p.key)}
                             disabled={isLocked(locked, p.key)}
                             onChange={() => apply(toggleKey(selected, p.key))}
                           />
                           <span>
-                            <span className="font-medium">{p.key}</span>
-                            <span className="text-muted-foreground block text-xs">
+                            <span className="font-mono text-[13px] font-medium">
+                              {p.key}
+                            </span>
+                            <span className="text-muted-foreground mt-0.5 block text-xs">
                               {p.description}
                               {lockReason ? ` ${lockReason}` : ""}
                             </span>
@@ -198,6 +207,13 @@ export function RoleForm({
 
       <div className="flex items-center gap-3">
         <Button type="submit" disabled={pending}>
+          {pending ? (
+            <Loader2
+              aria-hidden
+              data-icon="inline-start"
+              className="animate-spin motion-reduce:animate-none"
+            />
+          ) : null}
           {pending ? "Saving…" : "Save role"}
         </Button>
         <Link

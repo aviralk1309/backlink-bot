@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { Suspense } from "react";
-import { AuthShell } from "@/features/auth/auth-shell";
+import { AUTH_LINK, AuthShell } from "@/features/auth/auth-shell";
 import { LoginForm } from "@/features/auth/forms";
 import { getLoginNotice } from "@/lib/auth/messages";
 import { safeNext } from "@/lib/auth/redirect";
@@ -27,7 +27,7 @@ export default function LoginPage({
       footer={
         <>
           No account?{" "}
-          <Link href="/signup" className="underline">
+          <Link href="/signup" className={AUTH_LINK}>
             Request access
           </Link>
         </>

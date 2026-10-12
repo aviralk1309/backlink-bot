@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/auth/schemas";
 import {
@@ -10,9 +11,32 @@ import {
   setPasswordAction,
   signupAction,
 } from "./actions";
-import { Field, FormError } from "./auth-shell";
+import { AUTH_LINK, Field, FormError, FormSuccess } from "./auth-shell";
 
 const initial: FormState = {};
+
+function SubmitButton({
+  pending,
+  idle,
+  busy,
+}: {
+  pending: boolean;
+  idle: string;
+  busy: string;
+}) {
+  return (
+    <Button type="submit" size="lg" className="w-full" disabled={pending}>
+      {pending ? (
+        <Loader2
+          aria-hidden
+          data-icon="inline-start"
+          className="animate-spin motion-reduce:animate-none"
+        />
+      ) : null}
+      {pending ? busy : idle}
+    </Button>
+  );
+}
 
 export function LoginForm({ next, notice }: { next: string; notice?: string }) {
   const [state, formAction, pending] = useActionState(loginAction, initial);
@@ -27,11 +51,9 @@ export function LoginForm({ next, notice }: { next: string; notice?: string }) {
         autoComplete="current-password"
       />
       <FormError message={state.error ?? notice} />
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Signing in…" : "Sign in"}
-      </Button>
+      <SubmitButton pending={pending} idle="Sign in" busy="Signing in…" />
       <p className="text-sm">
-        <Link href="/forgot-password" className="underline">
+        <Link href="/forgot-password" className={AUTH_LINK}>
           Forgot your password?
         </Link>
       </p>
@@ -45,10 +67,8 @@ export function SignupForm() {
   if (state.message) {
     return (
       <div className="space-y-4">
-        <p role="status" className="text-sm">
-          {state.message}
-        </p>
-        <Link href="/login" className="text-sm underline">
+        <FormSuccess message={state.message} />
+        <Link href="/login" className={`${AUTH_LINK} text-sm`}>
           Back to sign in
         </Link>
       </div>
@@ -64,6 +84,7 @@ export function SignupForm() {
         name="password"
         type="password"
         autoComplete="new-password"
+        description="At least 10 characters, with a letter and a digit."
       />
       <Field
         label="Confirm password"
@@ -71,13 +92,12 @@ export function SignupForm() {
         type="password"
         autoComplete="new-password"
       />
-      <p className="text-muted-foreground text-xs">
-        At least 10 characters, with a letter and a digit.
-      </p>
       <FormError message={state.error} />
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending request…" : "Request access"}
-      </Button>
+      <SubmitButton
+        pending={pending}
+        idle="Request access"
+        busy="Sending request…"
+      />
     </form>
   );
 }
@@ -89,20 +109,14 @@ export function ForgotPasswordForm() {
   );
 
   if (state.message) {
-    return (
-      <p role="status" className="text-sm">
-        {state.message}
-      </p>
-    );
+    return <FormSuccess message={state.message} />;
   }
 
   return (
     <form action={formAction} className="space-y-4">
       <Field label="Email" name="email" type="email" autoComplete="email" />
       <FormError message={state.error} />
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Sending…" : "Send reset link"}
-      </Button>
+      <SubmitButton pending={pending} idle="Send reset link" busy="Sending…" />
     </form>
   );
 }
@@ -119,6 +133,7 @@ export function SetPasswordForm() {
         name="password"
         type="password"
         autoComplete="new-password"
+        description="At least 10 characters, with a letter and a digit."
       />
       <Field
         label="Confirm password"
@@ -126,13 +141,8 @@ export function SetPasswordForm() {
         type="password"
         autoComplete="new-password"
       />
-      <p className="text-muted-foreground text-xs">
-        At least 10 characters, with a letter and a digit.
-      </p>
       <FormError message={state.error} />
-      <Button type="submit" className="w-full" disabled={pending}>
-        {pending ? "Saving…" : "Save password"}
-      </Button>
+      <SubmitButton pending={pending} idle="Save password" busy="Saving…" />
     </form>
   );
 }

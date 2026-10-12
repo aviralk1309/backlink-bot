@@ -8,7 +8,13 @@ import { NAV_ITEMS } from "./nav";
 const REQUIRED: Record<string, readonly string[]> = {
   "/jobs": ["jobs.view"],
   "/reports": ["reports.view"],
-  "/admin": ["users.manage", "roles.manage"],
+  // Any admin section is enough. Keep in step with ADMIN_SECTIONS.
+  "/admin": [
+    "users.manage",
+    "roles.manage",
+    "activities.manage",
+    "blocklist.manage",
+  ],
 };
 
 export function visibleNavItems(permissions: readonly string[]) {

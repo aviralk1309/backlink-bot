@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { FormState } from "@/lib/auth/schemas";
 import { inviteUserAction } from "./actions";
 import type { RoleOption } from "./types";
@@ -45,12 +46,11 @@ export function InviteForm({ roles }: { roles: RoleOption[] }) {
           <label htmlFor="invite_role" className="text-sm font-medium">
             Role
           </label>
-          <select
+          <NativeSelect
             id="invite_role"
             name="role_id"
             required
             defaultValue=""
-            className="border-input bg-background h-9 w-full rounded-md border px-2 text-sm"
           >
             <option value="" disabled>
               Choose role…
@@ -60,16 +60,22 @@ export function InviteForm({ roles }: { roles: RoleOption[] }) {
                 {r.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
       {state.error ? (
-        <p role="alert" className="text-destructive text-sm">
+        <p
+          role="alert"
+          className="bg-destructive-soft text-destructive rounded-lg px-3 py-2 text-sm"
+        >
           {state.error}
         </p>
       ) : null}
       {state.message ? (
-        <p role="status" className="text-sm">
+        <p
+          role="status"
+          className="bg-success-soft text-success rounded-lg px-3 py-2 text-sm"
+        >
           {state.message}
         </p>
       ) : null}

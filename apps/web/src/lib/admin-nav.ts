@@ -6,6 +6,16 @@
 export const ADMIN_SECTIONS = [
   { label: "Users", href: "/admin/users", permission: "users.manage" },
   { label: "Roles", href: "/admin/roles", permission: "roles.manage" },
+  {
+    label: "Activities",
+    href: "/admin/activities",
+    permission: "activities.manage",
+  },
+  {
+    label: "Blocklist",
+    href: "/admin/blocklist",
+    permission: "blocklist.manage",
+  },
 ] as const;
 
 export function visibleAdminSections(permissions: readonly string[]) {

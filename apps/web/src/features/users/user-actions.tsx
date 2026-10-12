@@ -2,14 +2,12 @@
 
 import { useActionState } from "react";
 import { Button } from "@/components/ui/button";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { FormState } from "@/lib/auth/schemas";
 import { manageUserAction } from "./actions";
 import type { RoleOption, UserRow } from "./types";
 
 const initial: FormState = {};
-
-const selectClass =
-  "border-input bg-background h-8 rounded-md border px-2 text-sm";
 
 export function UserActions({
   user,
@@ -31,15 +29,15 @@ export function UserActions({
     (user.status === "active" && !isSelf);
 
   return (
-    <form action={formAction} className="space-y-1">
+    <form action={formAction} className="space-y-1.5">
       <input type="hidden" name="user_id" value={user.id} />
       <div className="flex flex-wrap items-center gap-2">
         {canPickRole ? (
-          <select
+          <NativeSelect
             name="role_id"
             defaultValue={user.role_id ?? ""}
             aria-label={`Role for ${user.email}`}
-            className={selectClass}
+            wrapperClassName="w-44"
           >
             <option value="">Choose role…</option>
             {roles.map((r) => (
@@ -47,7 +45,7 @@ export function UserActions({
                 {r.name}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         ) : null}
 
         {user.status === "pending" || user.status === "rejected" ? (
@@ -66,7 +64,7 @@ export function UserActions({
             type="submit"
             name="intent"
             value="reject"
-            variant="outline"
+            variant="destructive"
             size="sm"
             disabled={pending}
             formNoValidate
@@ -91,7 +89,7 @@ export function UserActions({
               type="submit"
               name="intent"
               value="deactivate"
-              variant="outline"
+              variant="destructive"
               size="sm"
               disabled={pending}
               formNoValidate

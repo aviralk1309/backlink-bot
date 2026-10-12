@@ -1,6 +1,9 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { ArrowLeft } from "lucide-react";
+import { PageSkeleton } from "@/components/app-skeletons";
+import { Notice } from "@/components/ui/notice";
 import { requirePagePermission } from "@/lib/auth/guard";
 import { DeleteRoleButton } from "@/features/roles/delete-role-button";
 import { getRoleDetail, listPermissions } from "@/features/roles/queries";
@@ -15,9 +18,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export default function EditRolePage({ params }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <EditRoleContent params={params} />
     </Suspense>
   );
@@ -49,12 +50,13 @@ async function EditRoleContent({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
+      <div className="space-y-2">
         <Link
           href="/admin/roles"
-          className="text-muted-foreground hover:text-foreground text-sm"
+          className="text-muted-foreground hover:text-foreground focus-visible:ring-ring inline-flex items-center gap-1.5 rounded text-sm outline-none focus-visible:ring-2"
         >
-          ← Roles
+          <ArrowLeft aria-hidden className="size-4" />
+          Roles
         </Link>
         <h1 className="text-2xl font-semibold tracking-tight">
           Edit role: {role.name}
@@ -66,9 +68,9 @@ async function EditRoleContent({ params }: Props) {
           Changes apply on their next request.
         </p>
         {role.is_protected ? (
-          <p className="text-muted-foreground text-sm">
+          <Notice tone="info">
             This role is protected. User and role management stay on.
-          </p>
+          </Notice>
         ) : null}
       </div>
       <RoleForm
@@ -85,9 +87,9 @@ async function EditRoleContent({ params }: Props) {
 
       <section
         aria-label="Delete role"
-        className="space-y-3 rounded-md border border-red-200 p-4 dark:border-red-950"
+        className="border-destructive/30 bg-card space-y-3 rounded-xl border p-5"
       >
-        <h2 className="text-lg font-semibold tracking-tight">Delete role</h2>
+        <h2 className="text-base font-semibold tracking-tight">Delete role</h2>
         <DeleteRoleButton
           roleId={role.id}
           roleName={role.name}
