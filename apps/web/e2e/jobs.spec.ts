@@ -127,6 +127,9 @@ test("fill in a job, start it, stop it, then delete it", async ({ page }) => {
 
   await test.step("changing settings now creates a new version", async () => {
     await page.goto(`/jobs/${id}/edit`);
+    await expect(
+      page.getByText(/Changes apply to future queries and checks only/),
+    ).toBeVisible();
     await page.getByLabel("Serper credit budget").fill("150");
     await page.getByRole("button", { name: "Save changes" }).click();
     await expect(page.getByText("Job saved.")).toBeVisible();
@@ -157,6 +160,12 @@ test("fill in a job, start it, stop it, then delete it", async ({ page }) => {
     await expect(page.getByRole("link", { name: "Edit settings" })).toHaveCount(
       0,
     );
+    await page.goto(`/jobs/${id}/edit`);
+    await expect(
+      page.getByText(
+        "This job is stopped, so its settings can no longer be changed.",
+      ),
+    ).toBeVisible();
   });
 
   await test.step("the activity log tells the story", async () => {
@@ -339,11 +348,15 @@ test("Admin creates and edits an activity, and versions only real changes", asyn
 
   await test.step("a bad template is flagged as you type", async () => {
     await page.locator("#w_relevance:visible").fill("35");
-    await page.locator('input[aria-label="Search text for template 1"]:visible').fill("{keywrd}");
+    await page
+      .locator('input[aria-label="Search text for template 1"]:visible')
+      .fill("{keywrd}");
     await expect(
       page.getByRole("alert").filter({ hasText: "{keywrd}" }),
     ).toBeVisible();
-    await page.locator('input[aria-label="Search text for template 1"]:visible').fill("{keyword}");
+    await page
+      .locator('input[aria-label="Search text for template 1"]:visible')
+      .fill("{keyword}");
   });
 
   const versionOf = async () => {

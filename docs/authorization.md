@@ -60,6 +60,35 @@ M2 added no permissions. It uses the ones already in the catalog.
 | `activities.manage` | Create and edit activity profiles | RLS insert and update; `/admin/activities` |
 | `blocklist.manage` | See and change the global blocklist | RLS on `blocklist`; `/admin/blocklist` |
 
+## Results and pipeline (M3)
+
+M3 introduced the opportunities pipeline. Access to results is controlled by
+the existing `results.*` permissions from M1.
+
+| Permission | What it allows | Where it is enforced |
+|---|---|---|
+| `results.view` | See non-filtered results | RLS on `opportunities`, `opportunity_sources`, `job_stats`; results tables and overview counters |
+| `results.view_filtered` | See auto-filtered results | RLS on `opportunities`; shows hidden results |
+| `results.review` | Mark results as Approved/Rejected/Used (M6) | Will gate review actions |
+| `results.export` | Export results as CSV (M6) | Will gate export |
+| `results.release_batch` | Release next batch from backlog (M6) | Will gate batch release |
+
+### What to know
+
+- **Opportunities are read-only to clients.** All writes happen through
+  SQL functions called by the worker role. Clients may only read through
+  `results.view` and `results.view_filtered`.
+- **Auto-filtered rows are hidden by default.** Users need both
+  `results.view` and `results.view_filtered` to see rows marked as
+  `queue_group = 'auto_filtered'`.
+- **Live counters respect job visibility.** The `job_stats` table is
+  readable with `jobs.view`, and counters are updated for jobs the user
+  can see.
+- **Domain cache is read-only.** The `domains` table is populated by the
+  worker and read through `results.view`.
+- **Worker heartbeats are admin-only.** The `worker_heartbeats` table
+  requires `system.view_health` to read.
+
 Reading activity profiles needs no permission beyond being an active user,
 because the job form lists them.
 
@@ -107,3 +136,31 @@ because the job form lists them.
   users can see.
 - `apps/web/e2e/jobs.spec.ts`: the job lifecycle, activities and blocklist as
   Admin, and that a Viewer is refused both on screen and through the API.
+
+## M3 tests
+
+- `supabase/tests/database/070_m3_core_schema.test.sql`: schema assertions for
+  M3 tables (`opportunities`, `opportunity_sources`, `domains`, `job_stats`,
+  `job_domains`, `worker_heartbeats`).
+- `supabase/tests/database/071_m3_record_discovery.test.sql`: discovery
+  recording, deduplication, and source tracking.
+- `supabase/tests/database/072_m3_discovery_flags.test.sql`: spam and
+  auto-filter flags.
+- `supabase/tests/database/073_m3_job_engine.test.sql`: claim, lease,
+  extension, release, and reaping.
+- `supabase/tests/database/074_m3_job_runner.test.sql`: job runner
+  transitions and completion detection.
+- `supabase/tests/database/075_m3_job_counters.test.sql`: live counter
+  updates and consistency.
+- `apps/worker/tests/unit/test_url_normalize.py`: URL normalization with
+  100+ test vectors and property tests.
+- `apps/worker/tests/unit/test_registered_domain.py`: registered domain
+  extraction tests.
+- `apps/worker/tests/integration/test_job_engine.py`: job engine under
+  real concurrency.
+- `apps/worker/tests/integration/test_job_runner.py`: job runner
+  orchestration.
+- `apps/worker/tests/integration/test_job_counters.py`: counter updates.
+- `apps/worker/tests/integration/test_heartbeat.py`: worker heartbeat.
+- `apps/worker/tests/integration/test_record_discovery_race.py`:
+  concurrent discovery and deduplication.

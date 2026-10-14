@@ -1,5 +1,5 @@
 begin;
-select plan(46);
+select plan(48);
 
 -- ---------------------------------------------------------------------
 -- Fixtures (run as postgres)
@@ -128,7 +128,7 @@ select is(
 );
 
 -- ---------------------------------------------------------------------
--- C. Permissions (2)
+-- C. Permissions (4)
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-0000-0000-0000000000a3', 'role', 'authenticated')::text, true);
@@ -138,6 +138,12 @@ select throws_ok(
   '42501', 'forbidden',
   'viewer cannot start a job'
 );
+select throws_ok(
+  $$select public.transition_job(
+      (select id from public.jobs where name = 'Ready job'), 'stop')$$,
+  '42501', 'forbidden',
+  'viewer cannot stop a job'
+);
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-0000-0000-0000000000a2', 'role', 'authenticated')::text, true);
 select throws_ok(
@@ -145,6 +151,12 @@ select throws_ok(
       (select id from public.jobs where name = 'Ready job'), 'start')$$,
   '42501', 'forbidden',
   'manager cannot start a job'
+);
+select throws_ok(
+  $$select public.transition_job(
+      (select id from public.jobs where name = 'Ready job'), 'stop')$$,
+  '42501', 'forbidden',
+  'manager cannot stop a job'
 );
 
 -- ---------------------------------------------------------------------

@@ -1,6 +1,7 @@
-import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense } from "react";
+import { PageSkeleton } from "@/components/app-skeletons";
+import { BackLink } from "@/components/back-link";
 import { ActivityForm } from "@/features/activities/activity-form";
 import { profileToFormValues } from "@/features/activities/form-values";
 import { getActivityProfile } from "@/features/activities/queries";
@@ -11,9 +12,7 @@ type Props = { params: Promise<{ id: string }> };
 
 export default function EditActivityPage({ params }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <EditActivityContent params={params} />
     </Suspense>
   );
@@ -31,13 +30,8 @@ async function EditActivityContent({ params }: Props) {
 
   return (
     <div className="space-y-6">
-      <div className="space-y-1">
-        <Link
-          href="/admin/activities"
-          className="text-muted-foreground hover:text-foreground text-sm"
-        >
-          ← Activities
-        </Link>
+      <div className="space-y-2">
+        <BackLink href="/admin/activities">Activities</BackLink>
         <h1 className="text-2xl font-semibold tracking-tight">
           Edit activity: {activity.name}
         </h1>

@@ -1,10 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useState } from "react";
+import { Loader2, Plus, Trash2 } from "lucide-react";
+import { FormSection } from "@/components/form-section";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Notice } from "@/components/ui/notice";
 import type { FormState } from "@/lib/auth/schemas";
+import { cn } from "@/lib/utils";
 import { ChipInput } from "../jobs/chip-input";
 import { LANGUAGES } from "../jobs/locales";
 import { saveActivityAction } from "./actions";
@@ -30,30 +35,7 @@ import { REVIEWER_FIELD_TYPES, type ReviewerFieldType } from "./types";
 
 const initialState: FormState = {};
 
-const selectClass =
-  "border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 h-8 w-full rounded-lg border px-2.5 text-sm outline-none focus-visible:ring-3";
-
-function Section({
-  title,
-  description,
-  children,
-}: {
-  title: string;
-  description?: string;
-  children: ReactNode;
-}) {
-  return (
-    <section aria-label={title} className="space-y-4 rounded-md border p-4">
-      <div className="space-y-1">
-        <h2 className="text-lg font-semibold tracking-tight">{title}</h2>
-        {description ? (
-          <p className="text-muted-foreground text-sm">{description}</p>
-        ) : null}
-      </div>
-      {children}
-    </section>
-  );
-}
+const CHECKBOX = "accent-primary size-4 shrink-0 pointer-coarse:size-5";
 
 function NumberField({
   id,
@@ -146,7 +128,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
       {/* Everything below the basics travels as one JSON field built from state. */}
       <input type="hidden" name="config" value={serializeConfig(cfg)} />
 
-      <Section title="Basics">
+      <FormSection title="Basics">
         <div className="grid gap-4 sm:grid-cols-2">
           <div className="space-y-1.5">
             <label htmlFor="activity_name" className="text-sm font-medium">
@@ -181,6 +163,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                 required
                 maxLength={50}
                 autoComplete="off"
+                className="font-mono"
                 aria-describedby="activity_key_hint"
               />
             ) : (
@@ -188,6 +171,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                 id="activity_key"
                 value={key}
                 readOnly
+                className="bg-muted/50 font-mono"
                 aria-describedby="activity_key_hint"
               />
             )}
@@ -199,11 +183,11 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
           </div>
         </div>
 
-        <label className="flex items-start gap-2 text-sm">
+        <label className="flex cursor-pointer items-start gap-3 text-sm">
           <input
             type="checkbox"
             name="enabled"
-            className="mt-0.5"
+            className={cn(CHECKBOX, "mt-0.5")}
             checked={enabled}
             onChange={(e) => setEnabled(e.target.checked)}
           />
@@ -225,9 +209,9 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             onChange={(v) => set("per_domain_cap", v)}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="Search templates"
         description="Each template becomes Google queries for a job. Lower priority numbers run first."
       >
@@ -254,8 +238,8 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                 ? templateProblem(t.template)
                 : null;
               return (
-                <li key={t.id} className="space-y-1.5 rounded-md border p-3">
-                  <div className="grid gap-2 sm:grid-cols-[1fr_9rem_5rem_auto]">
+                <li key={t.id} className="space-y-1.5 rounded-lg border p-3">
+                  <div className="flex flex-wrap items-center gap-2">
                     <Input
                       aria-label={`Search text for template ${i + 1}`}
                       value={t.template}
@@ -265,10 +249,11 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                       maxLength={300}
                       autoComplete="off"
                       aria-invalid={problem ? true : undefined}
+                      className="min-w-56 flex-1"
                     />
-                    <select
+                    <NativeSelect
                       aria-label={`Language for template ${i + 1}`}
-                      className={selectClass}
+                      wrapperClassName="w-44"
                       value={t.language}
                       onChange={(e) =>
                         updateTemplate(i, { language: e.target.value })
@@ -280,7 +265,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                           {l.name}
                         </option>
                       ))}
-                    </select>
+                    </NativeSelect>
                     <Input
                       aria-label={`Priority for template ${i + 1}`}
                       type="number"
@@ -289,11 +274,13 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                       onChange={(e) =>
                         updateTemplate(i, { priority: e.target.value })
                       }
+                      className="w-20"
                     />
                     <div className="flex items-center gap-3">
-                      <label className="flex items-center gap-1.5 text-sm">
+                      <label className="flex cursor-pointer items-center gap-2 text-sm">
                         <input
                           type="checkbox"
+                          className={CHECKBOX}
                           checked={t.enabled}
                           onChange={(e) =>
                             updateTemplate(i, { enabled: e.target.checked })
@@ -313,6 +300,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                         }
                         aria-label={`Remove template ${i + 1}`}
                       >
+                        <Trash2 aria-hidden data-icon="inline-start" />
                         Remove
                       </Button>
                     </div>
@@ -348,11 +336,12 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             ])
           }
         >
+          <Plus aria-hidden data-icon="inline-start" />
           Add template
         </Button>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="How to recognise the page type"
         description="Signals the checker looks for on a page. Leave a list empty to ignore it."
       >
@@ -388,10 +377,10 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
           />
         </div>
         <div className="grid gap-4 sm:grid-cols-2">
-          <label className="flex items-start gap-2 text-sm">
+          <label className="flex cursor-pointer items-start gap-3 text-sm">
             <input
               type="checkbox"
-              className="mt-0.5"
+              className={cn(CHECKBOX, "mt-0.5")}
               checked={cfg.link_list}
               onChange={(e) => set("link_list", e.target.checked)}
             />
@@ -409,9 +398,9 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             onChange={(v) => set("min_outbound_links", v)}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="Relevance"
         description="How much each part of a page counts when judging if it fits the job's topic."
       >
@@ -436,9 +425,9 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             onChange={(v) => set("min_score", v)}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="Scoring"
         description="How a page's final score is made up. The five parts must add up to 100."
       >
@@ -459,7 +448,12 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
         <p
           role="status"
           aria-live="polite"
-          className={`text-sm ${total === 100 ? "text-muted-foreground" : "text-destructive font-medium"}`}
+          className={cn(
+            "inline-flex rounded-md px-2 py-1 text-sm",
+            total === 100
+              ? "bg-success-soft text-success"
+              : "bg-destructive-soft text-destructive font-medium",
+          )}
         >
           Total: {total} of 100
         </p>
@@ -472,9 +466,9 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             onChange={(v) => set("w_spam_penalty", v)}
           />
         </div>
-      </Section>
+      </FormSection>
 
-      <Section
+      <FormSection
         title="Reviewer fields"
         description="Extra details a reviewer can fill in for each result."
       >
@@ -483,10 +477,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
         ) : (
           <ul className="space-y-2">
             {cfg.reviewer_fields.map((f, i) => (
-              <li
-                key={i}
-                className="grid gap-2 sm:grid-cols-[10rem_1fr_8rem_auto]"
-              >
+              <li key={i} className="flex flex-wrap items-center gap-2">
                 <Input
                   aria-label={`Key for field ${i + 1}`}
                   placeholder="key"
@@ -496,6 +487,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                   }
                   maxLength={30}
                   autoComplete="off"
+                  className="w-40 font-mono"
                 />
                 <Input
                   aria-label={`Label for field ${i + 1}`}
@@ -504,10 +496,11 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                   onChange={(e) => updateReviewer(i, { label: e.target.value })}
                   maxLength={40}
                   autoComplete="off"
+                  className="min-w-40 flex-1"
                 />
-                <select
+                <NativeSelect
                   aria-label={`Type for field ${i + 1}`}
-                  className={selectClass}
+                  wrapperClassName="w-36"
                   value={f.type}
                   onChange={(e) =>
                     updateReviewer(i, {
@@ -520,7 +513,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                       {t}
                     </option>
                   ))}
-                </select>
+                </NativeSelect>
                 <Button
                   type="button"
                   variant="ghost"
@@ -533,6 +526,7 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
                     )
                   }
                 >
+                  <Trash2 aria-hidden data-icon="inline-start" />
                   Remove
                 </Button>
               </li>
@@ -550,12 +544,20 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
             ])
           }
         >
+          <Plus aria-hidden data-icon="inline-start" />
           Add field
         </Button>
-      </Section>
+      </FormSection>
 
-      <div className="bg-background/95 sticky bottom-0 -mx-1 flex flex-wrap items-center gap-3 border-t px-1 py-3 backdrop-blur">
+      <div className="bg-background/90 sticky bottom-0 z-20 -mx-4 flex flex-wrap items-center gap-3 border-t px-4 py-3 backdrop-blur-sm md:-mx-8 md:px-8">
         <Button type="submit" disabled={pending}>
+          {pending ? (
+            <Loader2
+              aria-hidden
+              data-icon="inline-start"
+              className="animate-spin motion-reduce:animate-none"
+            />
+          ) : null}
           {pending ? "Saving…" : "Save activity"}
         </Button>
         <Link
@@ -571,9 +573,9 @@ export function ActivityForm({ values }: { values: ActivityFormValues }) {
           </span>
         ) : null}
         {state.error ? (
-          <p role="alert" className="text-destructive min-w-0 flex-1 text-sm">
+          <Notice tone="error" className="min-w-0 flex-1">
             {state.error}
-          </p>
+          </Notice>
         ) : null}
       </div>
     </form>

@@ -1,8 +1,11 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Notice } from "@/components/ui/notice";
+import { Textarea } from "@/components/ui/textarea";
 import type { FormState } from "@/lib/auth/schemas";
 import { addBlockedDomainsAction } from "./actions";
 import { MAX_BATCH, REASON_MAX } from "./rules";
@@ -33,13 +36,13 @@ export function AddBlockedDomains() {
     <form
       action={formAction}
       aria-label="Add blocked domains"
-      className="space-y-3 rounded-md border p-4"
+      className="bg-card space-y-4 rounded-xl border p-5"
     >
       <div className="space-y-1.5">
         <label htmlFor="block_domains" className="text-sm font-medium">
           Domains to block
         </label>
-        <textarea
+        <Textarea
           id="block_domains"
           name="domains"
           value={text}
@@ -48,7 +51,6 @@ export function AddBlockedDomains() {
           required
           placeholder={"spamsite.com\nanother-example.net"}
           aria-describedby="block_domains_hint"
-          className="border-input bg-background focus-visible:border-ring focus-visible:ring-ring/50 w-full rounded-lg border px-2.5 py-1.5 text-sm outline-none focus-visible:ring-3"
         />
         <p id="block_domains_hint" className="text-muted-foreground text-xs">
           One or many, separated by spaces, commas or new lines (up to{" "}
@@ -71,17 +73,24 @@ export function AddBlockedDomains() {
       </div>
       <div className="flex flex-wrap items-center gap-3">
         <Button type="submit" disabled={pending}>
+          {pending ? (
+            <Loader2
+              aria-hidden
+              data-icon="inline-start"
+              className="animate-spin motion-reduce:animate-none"
+            />
+          ) : null}
           {pending ? "Adding…" : "Block domains"}
         </Button>
         {state.error ? (
-          <p role="alert" className="text-destructive text-sm">
+          <Notice tone="error" className="min-w-0 flex-1">
             {state.error}
-          </p>
+          </Notice>
         ) : null}
         {state.message ? (
-          <p role="status" className="text-sm">
+          <Notice tone="success" className="min-w-0 flex-1">
             {state.message}
-          </p>
+          </Notice>
         ) : null}
       </div>
     </form>

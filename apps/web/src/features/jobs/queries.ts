@@ -2,12 +2,15 @@ import "server-only";
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { PAGE_SIZE, sanitizeSearch, type JobListParams } from "./rules";
-import type {
-  ActivityOption,
-  JobEvent,
-  JobListItem,
-  JobRow,
-  JobStatus,
+import {
+  EMPTY_JOB_STATS,
+  type ActivityOption,
+  type JobEvent,
+  type JobListItem,
+  type JobLive,
+  type JobRow,
+  type JobStats,
+  type JobStatus,
 } from "./types";
 
 // Like the roles queries, results are described by hand and cast, so a
@@ -153,3 +156,33 @@ export const listActivityOptions = cache(
     return (data ?? []) as ActivityOption[];
   },
 );
+const STATS_COLUMNS =
+  "credits_used, queries_total, queries_done, unique_opportunities, duplicates_skipped, unchecked_count";
+
+/**
+ * Status and live counters for the Overview tab. Runs as the signed-in user,
+ * so RLS decides: null when the job does not exist or the user may not see it.
+ */
+export async function getJobLive(jobId: string): Promise<JobLive | null> {
+  const supabase = await createClient();
+  const [jobRes, statsRes] = await Promise.all([
+    supabase.from("jobs").select("status").eq("id", jobId).maybeSingle(),
+    supabase
+      .from("job_stats")
+      .select(STATS_COLUMNS)
+      .eq("job_id", jobId)
+      .maybeSingle(),
+  ]);
+  if (jobRes.error)
+    throw new Error(`getJobLive failed: ${jobRes.error.message}`);
+  if (statsRes.error) {
+    throw new Error(`getJobLive failed: ${statsRes.error.message}`);
+  }
+  if (!jobRes.data) return null;
+
+  const stats = (statsRes.data ?? null) as unknown as JobStats | null;
+  return {
+    status: (jobRes.data as unknown as { status: JobStatus }).status,
+    stats: stats ?? EMPTY_JOB_STATS,
+  };
+}

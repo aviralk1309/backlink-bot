@@ -1,6 +1,7 @@
 "use client";
 
 import { useActionState, useState } from "react";
+import { Loader2, Pencil, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import type { FormState } from "@/lib/auth/schemas";
@@ -8,6 +9,16 @@ import { removeBlockedDomainAction, updateBlockReasonAction } from "./actions";
 import { REASON_MAX } from "./rules";
 
 const initialState: FormState = {};
+
+function Spinner() {
+  return (
+    <Loader2
+      aria-hidden
+      data-icon="inline-start"
+      className="animate-spin motion-reduce:animate-none"
+    />
+  );
+}
 
 /** Edit the reason, or remove the domain after a confirmation. */
 export function BlocklistRowActions({
@@ -50,9 +61,11 @@ export function BlocklistRowActions({
             onChange={(e) => setText(e.target.value)}
             maxLength={REASON_MAX}
             autoComplete="off"
-            className="max-w-xs"
+            autoFocus
+            className="max-w-xs min-w-40 flex-1"
           />
           <Button type="submit" size="sm" disabled={editPending}>
+            {editPending ? <Spinner /> : null}
             {editPending ? "Saving…" : "Save"}
           </Button>
           <Button
@@ -71,7 +84,7 @@ export function BlocklistRowActions({
       ) : confirming ? (
         <form
           action={removeAction}
-          className="flex flex-wrap items-center gap-2"
+          className="bg-destructive-soft flex flex-wrap items-center gap-2 rounded-lg px-3 py-2"
         >
           <input type="hidden" name="id" value={id} />
           <span className="text-sm">
@@ -83,12 +96,15 @@ export function BlocklistRowActions({
             variant="destructive"
             disabled={removePending}
           >
+            {removePending ? <Spinner /> : null}
             {removePending ? "Removing…" : "Yes, remove"}
           </Button>
+          {/* Focus lands on the safe choice. */}
           <Button
             type="button"
             size="sm"
-            variant="ghost"
+            variant="outline"
+            autoFocus
             disabled={removePending}
             onClick={() => setConfirming(false)}
           >
@@ -104,6 +120,7 @@ export function BlocklistRowActions({
             aria-label={`Edit reason for ${domain}`}
             onClick={() => setEditing(true)}
           >
+            <Pencil aria-hidden data-icon="inline-start" />
             Edit reason
           </Button>
           <Button
@@ -113,6 +130,7 @@ export function BlocklistRowActions({
             aria-label={`Remove ${domain}`}
             onClick={() => setConfirming(true)}
           >
+            <Trash2 aria-hidden data-icon="inline-start" />
             Remove
           </Button>
         </div>

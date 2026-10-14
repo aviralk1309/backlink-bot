@@ -1,7 +1,20 @@
 import { format } from "date-fns";
 import Link from "next/link";
 import { Suspense } from "react";
+import { Layers, Plus } from "lucide-react";
+import { PageSkeleton } from "@/components/app-skeletons";
 import { buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
+import { Notice } from "@/components/ui/notice";
+import { StatusBadge } from "@/components/ui/status-badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { savedNotice } from "@/features/activities/notice";
 import { listActivityProfiles } from "@/features/activities/queries";
 import { requirePagePermission } from "@/lib/auth/guard";
@@ -10,13 +23,18 @@ type Props = { searchParams: Promise<{ saved?: string }> };
 
 export default function AdminActivitiesPage({ searchParams }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <ActivitiesContent searchParams={searchParams} />
     </Suspense>
   );
 }
+
+const newActivityLink = (
+  <Link href="/admin/activities/new" className={buttonVariants()}>
+    <Plus aria-hidden data-icon="inline-start" />
+    New activity
+  </Link>
+);
 
 async function ActivitiesContent({ searchParams }: Props) {
   await requirePagePermission("activities.manage");
@@ -32,80 +50,63 @@ async function ActivitiesContent({ searchParams }: Props) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-1">
           <h1 className="text-2xl font-semibold tracking-tight">Activities</h1>
-          <p className="text-muted-foreground text-sm">
+          <p className="text-muted-foreground max-w-xl text-sm">
             An activity says how to search for one kind of backlink, such as
             guest posts, and how to score what is found. Activities are switched
             off, not deleted.
           </p>
         </div>
-        <Link href="/admin/activities/new" className={buttonVariants()}>
-          New activity
-        </Link>
+        {newActivityLink}
       </div>
 
-      {notice ? (
-        <p role="status" className="text-sm">
-          {notice}
-        </p>
-      ) : null}
+      {notice ? <Notice tone="success">{notice}</Notice> : null}
 
       {activities.length === 0 ? (
-        <p className="text-muted-foreground text-sm">No activities yet.</p>
+        <EmptyState
+          icon={<Layers />}
+          title="No activities yet"
+          description="Create an activity to tell jobs how to search and score."
+          action={newActivityLink}
+        />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
-              <tr>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Activity
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Status
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Templates
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Cap
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Version
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Updated
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+        <div className="bg-card rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Activity</TableHead>
+                <TableHead scope="col">Status</TableHead>
+                <TableHead scope="col">Templates</TableHead>
+                <TableHead scope="col">Cap</TableHead>
+                <TableHead scope="col">Version</TableHead>
+                <TableHead scope="col">Updated</TableHead>
+                <TableHead scope="col">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {activities.map((a) => (
-                <tr key={a.id} className="align-top">
-                  <td className="px-4 py-3">
+                <TableRow key={a.id} className="align-top">
+                  <TableCell className="px-4 py-3 whitespace-normal">
                     <div className="font-medium">{a.name}</div>
-                    <div className="text-muted-foreground text-xs">{a.key}</div>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className={`inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                        a.enabled
-                          ? "bg-green-100 text-green-900 dark:bg-green-950 dark:text-green-200"
-                          : "bg-zinc-200 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-200"
-                      }`}
-                    >
+                    <div className="text-muted-foreground font-mono text-xs">
+                      {a.key}
+                    </div>
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    <StatusBadge tone={a.enabled ? "success" : "neutral"}>
                       {a.enabled ? "Enabled" : "Disabled"}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 whitespace-nowrap">
+                    </StatusBadge>
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-nowrap">
                     {a.enabled_template_count} of {a.template_count} on
-                  </td>
-                  <td className="px-4 py-3">{a.per_domain_cap}</td>
-                  <td className="px-4 py-3">{a.version}</td>
-                  <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
+                    {a.per_domain_cap}
+                  </TableCell>
+                  <TableCell className="px-4 py-3">{a.version}</TableCell>
+                  <TableCell className="text-muted-foreground px-4 py-3 whitespace-nowrap">
                     {format(new Date(a.updated_at), "d MMM yyyy")}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3">
                     <Link
                       href={`/admin/activities/${a.id}`}
                       className={buttonVariants({
@@ -115,11 +116,11 @@ async function ActivitiesContent({ searchParams }: Props) {
                     >
                       Edit
                     </Link>
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
     </div>

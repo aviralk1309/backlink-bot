@@ -2,8 +2,19 @@ import { format } from "date-fns";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
-import { buttonVariants } from "@/components/ui/button";
+import { Ban, ChevronLeft, ChevronRight, Search } from "lucide-react";
+import { PageSkeleton } from "@/components/app-skeletons";
+import { Button, buttonVariants } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Input } from "@/components/ui/input";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
 import { AddBlockedDomains } from "@/features/blocklist/add-form";
 import { listBlocklist } from "@/features/blocklist/queries";
 import {
@@ -18,9 +29,7 @@ type Props = { searchParams: Promise<{ q?: string; page?: string }> };
 
 export default function AdminBlocklistPage({ searchParams }: Props) {
   return (
-    <Suspense
-      fallback={<p className="text-muted-foreground text-sm">Loading…</p>}
-    >
+    <Suspense fallback={<PageSkeleton />}>
       <BlocklistContent searchParams={searchParams} />
     </Suspense>
   );
@@ -47,7 +56,7 @@ async function BlocklistContent({ searchParams }: Props) {
     <div className="space-y-6">
       <div className="space-y-1">
         <h1 className="text-2xl font-semibold tracking-tight">Blocklist</h1>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground max-w-xl text-sm">
           Domains no job will ever return results from. This list applies to
           every job, on top of each job&apos;s own blocked domains.
         </p>
@@ -59,22 +68,25 @@ async function BlocklistContent({ searchParams }: Props) {
         action="/admin/blocklist"
         method="get"
         role="search"
-        className="flex flex-wrap items-center gap-2"
+        className="flex w-full items-center gap-2 sm:max-w-md"
       >
-        <Input
-          type="search"
-          name="q"
-          defaultValue={params.q}
-          aria-label="Search the blocklist"
-          placeholder="Search domain or reason"
-          className="max-w-sm"
-        />
-        <button
-          type="submit"
-          className={buttonVariants({ variant: "outline" })}
-        >
+        <div className="relative flex-1">
+          <Search
+            aria-hidden
+            className="text-muted-foreground pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2"
+          />
+          <Input
+            type="search"
+            name="q"
+            defaultValue={params.q}
+            aria-label="Search the blocklist"
+            placeholder="Search domain or reason"
+            className="pl-8"
+          />
+        </div>
+        <Button type="submit" variant="outline">
           Search
-        </button>
+        </Button>
         {params.q ? (
           <Link
             href="/admin/blocklist"
@@ -86,37 +98,33 @@ async function BlocklistContent({ searchParams }: Props) {
       </form>
 
       {rows.length === 0 ? (
-        <p className="text-muted-foreground text-sm">
-          {params.q
-            ? "No blocked domains match that search."
-            : "No blocked domains yet."}
-        </p>
+        <EmptyState
+          icon={<Ban />}
+          title={params.q ? "No matches" : "No blocked domains yet"}
+          description={
+            params.q
+              ? "No blocked domains match that search."
+              : "Domains you block above appear here."
+          }
+        />
       ) : (
-        <div className="overflow-x-auto rounded-md border">
-          <table className="w-full text-left text-sm">
-            <thead className="bg-muted/50 text-muted-foreground text-xs uppercase">
-              <tr>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Domain
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Reason
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Added
-                </th>
-                <th scope="col" className="px-4 py-2 font-medium">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
+        <div className="bg-card rounded-xl border">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead scope="col">Domain</TableHead>
+                <TableHead scope="col">Reason</TableHead>
+                <TableHead scope="col">Added</TableHead>
+                <TableHead scope="col">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
               {rows.map((r) => (
-                <tr key={r.id} className="align-top">
-                  <td className="px-4 py-3 font-medium break-all">
+                <TableRow key={r.id} className="align-top">
+                  <TableCell className="px-4 py-3 font-medium break-all whitespace-normal">
                     {r.domain}
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
                     {r.reason ?? (
                       <span className="text-muted-foreground">No reason</span>
                     )}
@@ -126,7 +134,7 @@ async function BlocklistContent({ searchParams }: Props) {
                         {r.source_job_name ? (
                           <Link
                             href={`/jobs/${r.source_job_id}`}
-                            className="underline-offset-4 hover:underline"
+                            className="focus-visible:ring-ring rounded underline-offset-4 outline-none hover:underline focus-visible:ring-2"
                           >
                             {r.source_job_name}
                           </Link>
@@ -135,23 +143,23 @@ async function BlocklistContent({ searchParams }: Props) {
                         )}
                       </p>
                     ) : null}
-                  </td>
-                  <td className="text-muted-foreground px-4 py-3 whitespace-nowrap">
+                  </TableCell>
+                  <TableCell className="text-muted-foreground px-4 py-3 whitespace-nowrap">
                     {format(new Date(r.created_at), "d MMM yyyy")}
                     <p className="text-xs">{r.added_by_name ?? ""}</p>
-                  </td>
-                  <td className="px-4 py-3">
+                  </TableCell>
+                  <TableCell className="px-4 py-3 whitespace-normal">
                     <BlocklistRowActions
                       key={`${r.id}:${r.reason ?? ""}`}
                       id={r.id}
                       domain={r.domain}
                       reason={r.reason}
                     />
-                  </td>
-                </tr>
+                  </TableCell>
+                </TableRow>
               ))}
-            </tbody>
-          </table>
+            </TableBody>
+          </Table>
         </div>
       )}
 
@@ -160,12 +168,13 @@ async function BlocklistContent({ searchParams }: Props) {
           <p className="text-muted-foreground">
             Showing {from}–{to} of {total}
           </p>
-          <div className="flex items-center gap-2">
+          <nav aria-label="Pagination" className="flex items-center gap-2">
             {hasPrev ? (
               <Link
                 href={blocklistHref({ ...params, page: params.page - 1 })}
                 className={buttonVariants({ variant: "outline" })}
               >
+                <ChevronLeft aria-hidden data-icon="inline-start" />
                 Previous
               </Link>
             ) : null}
@@ -175,9 +184,10 @@ async function BlocklistContent({ searchParams }: Props) {
                 className={buttonVariants({ variant: "outline" })}
               >
                 Next
+                <ChevronRight aria-hidden data-icon="inline-end" />
               </Link>
             ) : null}
-          </div>
+          </nav>
         </div>
       ) : null}
     </div>

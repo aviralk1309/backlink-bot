@@ -4,3 +4,5 @@
 -- migrations/*_m1_seed_permissions_roles.sql).
 -- Create the first Admin with: cd apps/web && pnpm bootstrap:admin
 -- (docs/runbooks/bootstrap-admin.md).
+
+alter role worker with login password 'worker';

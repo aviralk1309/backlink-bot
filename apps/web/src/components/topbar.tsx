@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { breadcrumbsFor } from "@/lib/breadcrumbs";
 import { cn } from "@/lib/utils";
+import { WorkerStatusBadge } from "@/features/health/worker-status";
 
 export function Topbar({
   collapsed,
@@ -88,6 +89,7 @@ export function Topbar({
         </ol>
       </nav>
 
+      <WorkerStatusBadge />
       <ThemeToggle />
     </header>
   );

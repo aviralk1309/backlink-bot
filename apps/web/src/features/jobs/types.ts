@@ -97,3 +97,25 @@ export type ActivityOption = {
   name: string;
   enabled: boolean;
 };
+
+/** One row of public.job_stats, the live counters on the Overview tab. */
+export type JobStats = {
+  credits_used: number;
+  queries_total: number;
+  queries_done: number;
+  unique_opportunities: number;
+  duplicates_skipped: number;
+  unchecked_count: number;
+};
+
+/** The route and the Overview tab share this shape. */
+export type JobLive = { status: JobStatus; stats: JobStats };
+
+export const EMPTY_JOB_STATS: JobStats = {
+  credits_used: 0,
+  queries_total: 0,
+  queries_done: 0,
+  unique_opportunities: 0,
+  duplicates_skipped: 0,
+  unchecked_count: 0,
+};

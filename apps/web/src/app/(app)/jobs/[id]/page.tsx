@@ -12,9 +12,12 @@ import { JobSettings } from "@/features/jobs/job-settings";
 import { JobTabs } from "@/features/jobs/job-tabs";
 import { LocalTime } from "@/features/jobs/local-time";
 import { savedNotice } from "@/features/jobs/notice";
+import { LiveStats } from "@/features/jobs/live-stats";
+import { EMPTY_JOB_STATS } from "@/features/jobs/types";
 import {
   getJob,
   getJobEvents,
+  getJobLive,
   getJobStartProblems,
   listActivityOptions,
 } from "@/features/jobs/queries";
@@ -136,8 +139,12 @@ async function Overview({
   job: JobRow;
   activities: Awaited<ReturnType<typeof listActivityOptions>>;
 }) {
-  const problems =
-    job.status === "draft" ? await getJobStartProblems(job.id) : [];
+  const [problems, live] = await Promise.all([
+    job.status === "draft"
+      ? getJobStartProblems(job.id)
+      : Promise.resolve([] as string[]),
+    getJobLive(job.id),
+  ]);
 
   return (
     <div className="space-y-4">
@@ -180,6 +187,14 @@ async function Overview({
         </Notice>
       ) : null}
 
+      <LiveStats
+        key={job.status}
+        jobId={job.id}
+        status={job.status}
+        budget={job.budget_credits}
+        initial={live?.stats ?? EMPTY_JOB_STATS}
+      />
+
       <section
         aria-label="Summary"
         className="bg-card space-y-4 rounded-xl border p-5"
@@ -217,10 +232,6 @@ async function Overview({
             </>
           ) : null}
         </dl>
-        <p className="text-muted-foreground text-sm">
-          Live progress (queries run, domains found, credits used) appears here
-          once workers are connected.
-        </p>
       </section>
     </div>
   );

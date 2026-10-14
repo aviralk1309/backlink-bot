@@ -239,3 +239,182 @@ People without it cannot see the list at all.
 `job_not_ready`, `invalid_transition`, `invalid_action`, `job_not_found`, and
 unique violations `activity_profiles_key_key` and `blocklist_domain_key`.
 See `apps/web/src/lib/db-errors.ts`.
+
+---
+
+## M3: pipeline backbone (URL rules, storage, worker engine)
+
+Migrations: `20261013150133_m3_opportunities.sql` (opportunities, sources),
+`20261013150144_m3_domains.sql` (domain cache),
+`20261013150201_m3_stats_heartbeats_worker_role.sql` (job stats, heartbeats, worker role),
+`20261013150257_m3_record_discovery.sql` (discovery recording),
+`20261013155302_m3_discovery_flags.sql` (discovery flags),
+`20261013164139_m3_job_engine.sql` (claim, lease, reap functions),
+`20261014052928_m3_job_runner.sql` (job runner/orchestrator),
+`20261014060702_m3_job_counters.sql` (live counters).
+
+All tables are written only by the worker role (M0-D4). Clients may read
+through RLS policies that check the permission catalog keys.
+
+---
+
+### `public.opportunities`
+One discovered URL per job. Every URL is stored, including failed, skipped and
+auto-filtered ones (I3). The worker normalizes URLs before inserting them.
+
+| Column | Type | Meaning |
+|---|---|---|
+| id | uuid | Primary key. |
+| job_id | uuid | References jobs. Deleted with the job. |
+| original_url | text | The URL exactly as received. 1 to 4096 chars. |
+| normalized_url | text | The canonical form the system uses. https only, <= 2100 chars. |
+| host | text | Full host (lowercase, no www, IDN to punycode). |
+| domain | text | Registered domain. Format: `^[a-z0-9]([a-z0-9.-]*[a-z0-9])?\.[a-z0-9-]{2,}$`. |
+| first_source_type | text | How this opportunity was first discovered: `google`, `competitor_csv`, `seed_list`. |
+| found_by_count | integer | How many distinct sources found this URL. >= 1. |
+| activity_key | text | Activity profile that this URL matches. Null until M5. |
+| priority | smallint | Claim order: 0 = competitor CSV, 1 = seed list, 2 = google search (I6). |
+| overlap_count | integer | Number of distinct competitor labels linking to this domain (G10). >= 0. |
+| client_link_status | text | `unknown` or `known_partial`. GSC exports are partial, so some gaps may be false. |
+| check_status | opportunity_check_status | Pipeline state: `pending`, `running`, `done`, `failed`, `skipped`. |
+| check_reason | text | Why it failed or was skipped. Required when status is `failed` or `skipped` (I3). |
+| locked_by | text | Worker id that currently claims this row. Null when not claimed. |
+| lease_expires_at | timestamptz | When the current lease expires. Null when not claimed. |
+| attempts | integer | How many times this row was claimed. >= 0. |
+| queue_group | opportunity_queue_group | Review queue: `auto_filtered`, `ready`, `backlog`. Null until M5. |
+| filter_reason | text | Why it was auto-filtered. Required when queue_group is `auto_filtered`. |
+| score | numeric(5,2) | 0 to 100. Null until M5. |
+| tier | opportunity_tier | `high`, `medium`, `low`, `unchecked`. Null until M5. |
+| score_breakdown | jsonb | Component scores and reason codes. Null until M5. |
+| config_version | integer | Job config version in force when discovered (A5, I8). >= 1. |
+| fetch_summary | jsonb | Fetch outcome, redirects, final URL. Null until M5. |
+| flags | jsonb | Domain-level flags. Default `{}` object. |
+| extras | jsonb | Extra fields from CSV uploads or other sources. Default `{}` object. |
+| duplicate_of | uuid | Points at the canonical row if this was merged (redirect/canonical). Null. |
+| created_at, updated_at | timestamptz | |
+
+Unique: `(job_id, normalized_url)`. The same URL may exist in different jobs (I7).
+
+Indexes:
+- `opportunities_claim_idx`: `(priority, created_at, id)` WHERE `check_status = 'pending'` - claim order
+- `opportunities_lease_idx`: `(lease_expires_at)` WHERE `check_status = 'running'` - reaper
+- `opportunities_ranking_idx`: `(job_id, queue_group, score desc nulls last, overlap_count desc, created_at, id)` - review queue order
+- `opportunities_job_domain_idx`: `(job_id, domain)` - per-domain cap
+- `opportunities_duplicate_of_idx`: `(duplicate_of)` WHERE `duplicate_of is not null`
+
+Access: select with `results.view` and `results.view_filtered` for auto-filtered rows.
+No client writes. Worker role has full access.
+
+---
+
+### `public.opportunity_sources`
+Every source that found an opportunity. One row per (opportunity, source_type, source_ref).
+
+| Column | Type | Meaning |
+|---|---|---|
+| opportunity_id | uuid | References opportunities. Deleted with the opportunity. |
+| source_type | text | `google`, `competitor_csv`, or `seed_list`. |
+| source_ref | text | google: query id. competitor_csv: competitor label. seed_list: any text. |
+| found_at | timestamptz | When this source was recorded. |
+
+Primary key: `(opportunity_id, source_type, source_ref)`.
+
+Index: `opportunity_sources_ref_idx`: `(source_type, source_ref)` for reporting.
+
+Access: select with `results.view`. No client writes.
+
+---
+
+### `public.domains`
+Domain-level cache and metadata. Created lazily when a domain is first encountered.
+
+| Column | Type | Meaning |
+|---|---|---|
+| registered_domain | text | Primary key. Lowercase registered domain. |
+| first_seen_at | timestamptz | When this domain was first discovered. |
+| last_seen_at | timestamptz | When this domain was last discovered. |
+| robots_txt | text | Last fetched robots.txt content. |
+| robots_fetched_at | timestamptz | When robots.txt was last fetched. |
+| robots_allow_all | boolean | True if robots.txt allows all crawling. |
+| blocked_suspected | boolean | True if the domain is suspected of blocking scrapers. |
+| last_fetch_status | text | Last fetch outcome. |
+| last_fetch_at | timestamptz | When the last fetch was attempted. |
+| global_spam_flag | boolean | True if this domain was rejected as spam in any job. |
+| spam_flag_job_id | uuid | Job where the spam flag was set. |
+| spam_flag_reason | text | Reason for the spam flag. |
+| spam_flag_at | timestamptz | When the spam flag was set. |
+
+Access: select with `results.view`. Worker role has full access.
+
+---
+
+### `public.job_stats`
+Live counters for each job. Updated transactionally with the events that
+change them (M3-S8, A9).
+
+| Column | Type | Meaning |
+|---|---|---|
+| job_id | uuid | Primary key. References jobs. Deleted with the job. |
+| credits_used | integer | Serper credits consumed. >= 0. |
+| queries_total | integer | Total queries generated for this job. >= 0. |
+| queries_done | integer | Queries that completed (success or failure). >= 0. |
+| unique_opportunities | integer | Unique normalized URLs discovered. >= 0. |
+| duplicates_skipped | integer | Duplicate URLs that were skipped. >= 0. |
+| unchecked_count | integer | Rows that could not be checked (G12, I4). >= 0. |
+| updated_at | timestamptz | When these counters were last updated. |
+
+Access: select with `jobs.view`. Worker role has full access.
+
+---
+
+### `public.job_domains`
+Domains discovered per job. Used for per-domain cap and saturation calculation.
+
+| Column | Type | Meaning |
+|---|---|---|
+| job_id | uuid | References jobs. Deleted with the job. |
+| domain | text | Registered domain. |
+| first_discovered_at | timestamptz | When this domain was first found in this job. |
+| last_discovered_at | timestamptz | When this domain was last found in this job. |
+
+Primary key: `(job_id, domain)`.
+
+Access: select with `jobs.view`. Worker role has full access.
+
+---
+
+### `public.worker_heartbeats`
+Worker health monitoring (M3-S9). One row per active worker, refreshed every
+15 seconds. A clean stop deletes the row.
+
+| Column | Type | Meaning |
+|---|---|---|
+| worker_id | text | Primary key. Worker identifier. |
+| host | text | Machine hostname. |
+| started_at | timestamptz | When the worker started. |
+| last_seen_at | timestamptz | When the last heartbeat was received. |
+| current_job_id | uuid | Job the worker is currently processing, if any. Null until M5. |
+
+Access: select with `system.view_health`. Worker role has full access.
+
+---
+
+### Functions
+
+| Function | Who | What |
+|---|---|---|
+| `record_discovery(job_id, raw_url, normalized_url, host, domain, source_type, source_ref)` | worker | Inserts or updates an opportunity, adds source record, handles duplicates. Returns `(opp_id, created, source_added, domain_added)`. |
+| `merge_opportunity_after_fetch(opp_id, final_url)` | worker | Merges rows when a redirect/canonical points to an existing opportunity. |
+| `claim_opportunity_checks(worker_id, batch, lease_seconds)` | worker | Claims pending rows for processing using FOR UPDATE SKIP LOCKED (A2). Returns rows with lease. |
+| `extend_opportunity_leases(worker_id, ids, lease_seconds)` | worker | Extends leases for rows the worker is still processing. |
+| `release_opportunity_claims(worker_id)` | worker | Releases all claims held by a worker. |
+| `reap_expired_leases(max_attempts, limit)` | worker | Returns expired leases to pending, marks failed after max_attempts. Returns `(requeued, failed)`. |
+| `worker_pick_up_next_job()` | worker | Picks up the next queued job and transitions it to running. Returns `(job_id, outcome)`. |
+| `worker_complete_drained_jobs()` | worker | Marks jobs as completed when no pending work remains. Returns array of completed job ids. |
+| `update_job_stats(job_id, delta_credits, delta_queries_done, delta_uniq, delta_dups, delta_unchecked)` | internal | Updates counters transactionally. |
+
+---
+
+### Error codes the app maps to messages
+Additional M3 error codes: `no_claimable_rows`, `lease_expired`, `max_attempts_exceeded`.
+See `apps/web/src/lib/db-errors.ts`.

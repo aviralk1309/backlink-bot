@@ -8,7 +8,7 @@ setup:
 
 check:
 	cd apps/web && pnpm lint && pnpm typecheck && pnpm format:check && pnpm test
-	cd apps/worker && uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest -m unit
+	cd apps/worker && uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest -m unit && uv run pytest -m integration
 
 db-start:
 	supabase start

@@ -126,6 +126,82 @@ export type Database = {
           },
         ];
       };
+      domains: {
+        Row: {
+          blocked_suspected: boolean;
+          blocked_suspected_at: string | null;
+          checked_at: string | null;
+          created_at: string;
+          global_spam: boolean;
+          global_spam_at: string | null;
+          global_spam_by: string | null;
+          global_spam_job_id: string | null;
+          has_about_page: boolean | null;
+          has_contact_page: boolean | null;
+          last_fetch_at: string | null;
+          last_fetch_status: string | null;
+          registered_domain: string;
+          robots_fetched_at: string | null;
+          robots_txt: string | null;
+          tld_flags: NonNullable<Json>;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          blocked_suspected?: boolean;
+          blocked_suspected_at?: string | null;
+          checked_at?: string | null;
+          created_at?: string;
+          global_spam?: boolean;
+          global_spam_at?: string | null;
+          global_spam_by?: string | null;
+          global_spam_job_id?: string | null;
+          has_about_page?: boolean | null;
+          has_contact_page?: boolean | null;
+          last_fetch_at?: string | null;
+          last_fetch_status?: string | null;
+          registered_domain: string;
+          robots_fetched_at?: string | null;
+          robots_txt?: string | null;
+          tld_flags?: NonNullable<Json>;
+          updated_at?: string;
+        };
+        Update: {
+          blocked_suspected?: boolean;
+          blocked_suspected_at?: string | null;
+          checked_at?: string | null;
+          created_at?: string;
+          global_spam?: boolean;
+          global_spam_at?: string | null;
+          global_spam_by?: string | null;
+          global_spam_job_id?: string | null;
+          has_about_page?: boolean | null;
+          has_contact_page?: boolean | null;
+          last_fetch_at?: string | null;
+          last_fetch_status?: string | null;
+          registered_domain?: string;
+          robots_fetched_at?: string | null;
+          robots_txt?: string | null;
+          tld_flags?: NonNullable<Json>;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "domains_global_spam_by_fkey";
+            columns: ["global_spam_by"];
+            isOneToOne: false;
+            referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "domains_global_spam_job_id_fkey";
+            columns: ["global_spam_job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
       job_config_history: {
         Row: {
           changed_at: string;
@@ -159,6 +235,36 @@ export type Database = {
           },
           {
             foreignKeyName: "job_config_history_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_domains: {
+        Row: {
+          first_seen_at: string;
+          first_source_type: string;
+          job_id: string;
+          registered_domain: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          first_seen_at?: string;
+          first_source_type: string;
+          job_id: string;
+          registered_domain: string;
+        };
+        Update: {
+          first_seen_at?: string;
+          first_source_type?: string;
+          job_id?: string;
+          registered_domain?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_domains_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
             referencedRelation: "jobs";
@@ -207,6 +313,48 @@ export type Database = {
             foreignKeyName: "job_events_job_id_fkey";
             columns: ["job_id"];
             isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      job_stats: {
+        Row: {
+          credits_used: number;
+          duplicates_skipped: number;
+          job_id: string;
+          queries_done: number;
+          queries_total: number;
+          unchecked_count: number;
+          unique_opportunities: number;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          credits_used?: number;
+          duplicates_skipped?: number;
+          job_id: string;
+          queries_done?: number;
+          queries_total?: number;
+          unchecked_count?: number;
+          unique_opportunities?: number;
+          updated_at?: string;
+        };
+        Update: {
+          credits_used?: number;
+          duplicates_skipped?: number;
+          job_id?: string;
+          queries_done?: number;
+          queries_total?: number;
+          unchecked_count?: number;
+          unique_opportunities?: number;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "job_stats_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: true;
             referencedRelation: "jobs";
             referencedColumns: ["id"];
           },
@@ -338,6 +486,151 @@ export type Database = {
             columns: ["created_by"];
             isOneToOne: false;
             referencedRelation: "profiles";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      opportunities: {
+        Row: {
+          activity_key: string | null;
+          attempts: number;
+          check_reason: string | null;
+          check_status: Database["public"]["Enums"]["opportunity_check_status"];
+          client_link_status: string;
+          config_version: number;
+          created_at: string;
+          domain: string;
+          duplicate_of: string | null;
+          extras: NonNullable<Json>;
+          fetch_summary: Json | null;
+          filter_reason: string | null;
+          first_source_type: string;
+          flags: NonNullable<Json>;
+          found_by_count: number;
+          host: string;
+          id: string;
+          job_id: string;
+          lease_expires_at: string | null;
+          locked_by: string | null;
+          normalized_url: string;
+          original_url: string;
+          overlap_count: number;
+          priority: number;
+          queue_group:
+            Database["public"]["Enums"]["opportunity_queue_group"] | null;
+          score: number | null;
+          score_breakdown: Json | null;
+          tier: Database["public"]["Enums"]["opportunity_tier"] | null;
+          updated_at: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          activity_key?: string | null;
+          attempts?: number;
+          check_reason?: string | null;
+          check_status?: Database["public"]["Enums"]["opportunity_check_status"];
+          client_link_status?: string;
+          config_version: number;
+          created_at?: string;
+          domain: string;
+          duplicate_of?: string | null;
+          extras?: NonNullable<Json>;
+          fetch_summary?: Json | null;
+          filter_reason?: string | null;
+          first_source_type: string;
+          flags?: NonNullable<Json>;
+          found_by_count?: number;
+          host: string;
+          id?: string;
+          job_id: string;
+          lease_expires_at?: string | null;
+          locked_by?: string | null;
+          normalized_url: string;
+          original_url: string;
+          overlap_count?: number;
+          priority?: number;
+          queue_group?:
+            Database["public"]["Enums"]["opportunity_queue_group"] | null;
+          score?: number | null;
+          score_breakdown?: Json | null;
+          tier?: Database["public"]["Enums"]["opportunity_tier"] | null;
+          updated_at?: string;
+        };
+        Update: {
+          activity_key?: string | null;
+          attempts?: number;
+          check_reason?: string | null;
+          check_status?: Database["public"]["Enums"]["opportunity_check_status"];
+          client_link_status?: string;
+          config_version?: number;
+          created_at?: string;
+          domain?: string;
+          duplicate_of?: string | null;
+          extras?: NonNullable<Json>;
+          fetch_summary?: Json | null;
+          filter_reason?: string | null;
+          first_source_type?: string;
+          flags?: NonNullable<Json>;
+          found_by_count?: number;
+          host?: string;
+          id?: string;
+          job_id?: string;
+          lease_expires_at?: string | null;
+          locked_by?: string | null;
+          normalized_url?: string;
+          original_url?: string;
+          overlap_count?: number;
+          priority?: number;
+          queue_group?:
+            Database["public"]["Enums"]["opportunity_queue_group"] | null;
+          score?: number | null;
+          score_breakdown?: Json | null;
+          tier?: Database["public"]["Enums"]["opportunity_tier"] | null;
+          updated_at?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opportunities_duplicate_of_fkey";
+            columns: ["duplicate_of"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
+            referencedColumns: ["id"];
+          },
+          {
+            foreignKeyName: "opportunities_job_id_fkey";
+            columns: ["job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
+      opportunity_sources: {
+        Row: {
+          found_at: string;
+          opportunity_id: string;
+          source_ref: string;
+          source_type: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          found_at?: string;
+          opportunity_id: string;
+          source_ref: string;
+          source_type: string;
+        };
+        Update: {
+          found_at?: string;
+          opportunity_id?: string;
+          source_ref?: string;
+          source_type?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "opportunity_sources_opportunity_id_fkey";
+            columns: ["opportunity_id"];
+            isOneToOne: false;
+            referencedRelation: "opportunities";
             referencedColumns: ["id"];
           },
         ];
@@ -475,12 +768,73 @@ export type Database = {
         };
         Relationships: [];
       };
+      worker_heartbeats: {
+        Row: {
+          current_job_id: string | null;
+          host: string;
+          last_seen_at: string;
+          started_at: string;
+          worker_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          current_job_id?: string | null;
+          host: string;
+          last_seen_at?: string;
+          started_at?: string;
+          worker_id: string;
+        };
+        Update: {
+          current_job_id?: string | null;
+          host?: string;
+          last_seen_at?: string;
+          started_at?: string;
+          worker_id?: string;
+        };
+        Relationships: [
+          {
+            foreignKeyName: "worker_heartbeats_current_job_id_fkey";
+            columns: ["current_job_id"];
+            isOneToOne: false;
+            referencedRelation: "jobs";
+            referencedColumns: ["id"];
+          },
+        ];
+      };
     };
     Views: {
       [_ in never]: never;
     };
     Functions: {
+      claim_opportunity_checks: {
+        Args: {
+          p_batch?: number;
+          p_lease_seconds?: number;
+          p_worker_id: string;
+        };
+        Returns: {
+          activity_key: string;
+          attempts: number;
+          config_version: number;
+          domain: string;
+          host: string;
+          id: string;
+          job_id: string;
+          lease_expires_at: string;
+          normalized_url: string;
+          original_url: string;
+          priority: number;
+        }[];
+      };
       current_role_id: { Args: Record<PropertyKey, never>; Returns: string };
+      extend_opportunity_leases: {
+        Args: {
+          p_ids: string[];
+          p_lease_seconds?: number;
+          p_worker_id: string;
+        };
+        Returns: string[];
+      };
       has_permission: { Args: { p_key: string }; Returns: boolean };
       job_apply_transition: {
         Args: {
@@ -501,12 +855,76 @@ export type Database = {
         Returns: Json;
       };
       job_start_problems: { Args: { p_job_id: string }; Returns: string[] };
+      job_stats_add: {
+        Args: {
+          p_credits?: number;
+          p_job_id: string;
+          p_queries_done?: number;
+          p_queries_total?: number;
+        };
+        Returns: undefined;
+      };
+      job_stats_recount: {
+        Args: { p_job_id: string };
+        Returns: {
+          unchecked_count: number;
+          unique_opportunities: number;
+        }[];
+      };
       job_transition_target: {
         Args: {
           p_action: string;
           p_status: Database["public"]["Enums"]["job_status"];
         };
         Returns: Database["public"]["Enums"]["job_status"];
+      };
+      job_work_pending: { Args: { p_job_id: string }; Returns: string[] };
+      merge_opportunity_after_fetch: {
+        Args: { p_final_normalized_url: string; p_opportunity_id: string };
+        Returns: {
+          canonical_id: string;
+          outcome: string;
+        }[];
+      };
+      opportunity_counts_unchecked: {
+        Args: {
+          p_check_status: Database["public"]["Enums"]["opportunity_check_status"];
+          p_duplicate_of: string;
+          p_queue_group: Database["public"]["Enums"]["opportunity_queue_group"];
+          p_tier: Database["public"]["Enums"]["opportunity_tier"];
+        };
+        Returns: boolean;
+      };
+      reap_expired_leases: {
+        Args: { p_limit?: number; p_max_attempts?: number };
+        Returns: {
+          failed: number;
+          requeued: number;
+        }[];
+      };
+      record_discovery: {
+        Args: {
+          p_domain: string;
+          p_extras?: Json;
+          p_host: string;
+          p_job_id: string;
+          p_normalized_url: string;
+          p_original_url: string;
+          p_source_ref: string;
+          p_source_type: string;
+        };
+        Returns: {
+          created: boolean;
+          domain_added: boolean;
+          filter_reason: string;
+          opp_id: string;
+          previously_spam: boolean;
+          source_added: boolean;
+        }[];
+      };
+      release_opportunity_claims: {
+        Args: { p_worker_id: string };
+        Returns: number;
       };
       role_user_counts: {
         Args: Record<PropertyKey, never>;
@@ -528,6 +946,17 @@ export type Database = {
         Args: { p_action: string; p_job_id: string; p_reason?: string };
         Returns: Database["public"]["Enums"]["job_status"];
       };
+      worker_complete_drained_jobs: {
+        Args: Record<PropertyKey, never>;
+        Returns: string[];
+      };
+      worker_pick_up_next_job: {
+        Args: Record<PropertyKey, never>;
+        Returns: {
+          job_id: string;
+          outcome: string;
+        }[];
+      };
       worker_transition_job: {
         Args: { p_action: string; p_job_id: string; p_reason?: string };
         Returns: Database["public"]["Enums"]["job_status"];
@@ -543,6 +972,10 @@ export type Database = {
         | "failed"
         | "saturated"
         | "stopped";
+      opportunity_check_status:
+        "pending" | "running" | "done" | "failed" | "skipped";
+      opportunity_queue_group: "auto_filtered" | "ready" | "backlog";
+      opportunity_tier: "high" | "medium" | "low" | "unchecked";
       profile_status: "pending" | "active" | "rejected" | "deactivated";
     };
     CompositeTypes: {
@@ -684,6 +1117,15 @@ export const Constants = {
         "saturated",
         "stopped",
       ],
+      opportunity_check_status: [
+        "pending",
+        "running",
+        "done",
+        "failed",
+        "skipped",
+      ],
+      opportunity_queue_group: ["auto_filtered", "ready", "backlog"],
+      opportunity_tier: ["high", "medium", "low", "unchecked"],
       profile_status: ["pending", "active", "rejected", "deactivated"],
     },
   },
