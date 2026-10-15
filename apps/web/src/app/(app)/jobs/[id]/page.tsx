@@ -6,6 +6,7 @@ import { PageSkeleton } from "@/components/app-skeletons";
 import { BackLink } from "@/components/back-link";
 import { buttonVariants } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
+import { CsvUploadsPanel } from "@/features/csv/csv-uploads-panel";
 import { ActivityLog } from "@/features/jobs/activity-log";
 import { DeleteJobButton, JobActions } from "@/features/jobs/job-actions";
 import { JobSettings } from "@/features/jobs/job-settings";
@@ -108,6 +109,13 @@ async function JobContent({ params, searchParams }: Props) {
       ) : null}
       {tab === "settings" ? (
         <JobSettings job={job} activities={activities} />
+      ) : null}
+      {tab === "data" ? (
+        <CsvUploadsPanel
+          jobId={job.id}
+          isDraft={job.status === "draft"}
+          canUpload={permissions.includes("csv.upload")}
+        />
       ) : null}
       {tab === "activity" ? <Activity jobId={job.id} /> : null}
 

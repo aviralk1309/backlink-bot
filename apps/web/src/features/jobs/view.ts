@@ -35,12 +35,13 @@ export function pageRange(page: number, total: number): PageRange {
 // Job detail
 // ---------------------------------------------------------------------
 
-export const JOB_TABS = ["overview", "settings", "activity"] as const;
+export const JOB_TABS = ["overview", "settings", "data", "activity"] as const;
 export type JobTab = (typeof JOB_TABS)[number];
 
 export const JOB_TAB_LABELS: Record<JobTab, string> = {
   overview: "Overview",
   settings: "Settings",
+  data: "Data",
   activity: "Activity",
 };
 

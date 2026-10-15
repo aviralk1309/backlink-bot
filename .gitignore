@@ -113,3 +113,10 @@ temp/
 
 *.snap
 *.generated.*
+
+# ============================================================
+# Generated CSV fixtures (big or real exports)
+# ============================================================
+
+fixtures/csv/big_*.csv
+fixtures/csv/real/

@@ -1,0 +1,260 @@
+{
+  "_note": "ALL FILES SYNTHETIC. Header names imitate vendors from memory. line numbers are 1-based physical lines. Replace/extend with real exports under fixtures/csv/real/.",
+  "files": {
+    "ahrefs-like_utf8-bom.csv": {
+      "shape": "full backlink export",
+      "encoding": "utf-8",
+      "bom": true,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "Referring page URL",
+      "data_records": 30,
+      "distinct_domains": 14,
+      "notes": "record 4 has a quoted cell containing a newline, so physical lines != records"
+    },
+    "ahrefs-like_utf16le-tab.csv": {
+      "shape": "full backlink export",
+      "encoding": "utf-16-le",
+      "bom": true,
+      "delimiter": "\t",
+      "header_line": 1,
+      "url_column": "Referring page URL",
+      "data_records": 30,
+      "distinct_domains": 14,
+      "notes": "must be decoded as UTF-16 before splitting; tab delimiter"
+    },
+    "semrush-like_quoted.csv": {
+      "shape": "full backlink export",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "Source url",
+      "data_records": 30,
+      "distinct_domains": 14,
+      "notes": "every field quoted"
+    },
+    "gsc-like_top-linking-sites.csv": {
+      "shape": "domain-only",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "Site",
+      "data_records": 14,
+      "distinct_domains": 14,
+      "notes": "NO URLs, bare domains. Decision needed: accept as https://<domain>/ (recommended)"
+    },
+    "gsc-like_latest-links.csv": {
+      "shape": "page urls",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "Linking page",
+      "data_records": 25,
+      "distinct_domains": 14,
+      "notes": ""
+    },
+    "edge_messy.csv": {
+      "shape": "edge cases",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "url",
+      "data_lines": 29,
+      "rows": [
+        {
+          "line": 2,
+          "category": "valid"
+        },
+        {
+          "line": 3,
+          "category": "valid",
+          "dup_of": 2
+        },
+        {
+          "line": 4,
+          "category": "valid",
+          "dup_of": 2
+        },
+        {
+          "line": 5,
+          "category": "valid",
+          "dup_of": "pending-normalizer"
+        },
+        {
+          "line": 6,
+          "category": "valid",
+          "dup_of": "pending-normalizer"
+        },
+        {
+          "line": 7,
+          "category": "valid",
+          "dup_of": "pending-normalizer"
+        },
+        {
+          "line": 8,
+          "category": "valid"
+        },
+        {
+          "line": 9,
+          "category": "valid"
+        },
+        {
+          "line": 10,
+          "category": "valid"
+        },
+        {
+          "line": 11,
+          "category": "valid"
+        },
+        {
+          "line": 12,
+          "category": "valid"
+        },
+        {
+          "line": 13,
+          "category": "ambiguous",
+          "suggest": "accept, prefix https://"
+        },
+        {
+          "line": 14,
+          "category": "ambiguous",
+          "suggest": "accept, prefix https:"
+        },
+        {
+          "line": 15,
+          "category": "ambiguous",
+          "suggest": "accept, prefix https://"
+        },
+        {
+          "line": 16,
+          "category": "invalid",
+          "error": "not_http"
+        },
+        {
+          "line": 17,
+          "category": "invalid",
+          "error": "not_http"
+        },
+        {
+          "line": 18,
+          "category": "invalid",
+          "error": "not_http"
+        },
+        {
+          "line": 19,
+          "category": "invalid",
+          "error": "bad_url"
+        },
+        {
+          "line": 20,
+          "category": "invalid",
+          "error": "bad_url"
+        },
+        {
+          "line": 21,
+          "category": "invalid",
+          "error": "bad_url"
+        },
+        {
+          "line": 22,
+          "category": "invalid",
+          "error": "no_domain"
+        },
+        {
+          "line": 23,
+          "category": "invalid",
+          "error": "no_domain"
+        },
+        {
+          "line": 24,
+          "category": "invalid",
+          "error": "too_long"
+        },
+        {
+          "line": 25,
+          "category": "invalid",
+          "error": "too_long"
+        },
+        {
+          "line": 26,
+          "category": "invalid",
+          "error": "empty_url"
+        },
+        {
+          "line": 27,
+          "category": "blank"
+        },
+        {
+          "line": 28,
+          "category": "valid",
+          "note": "ragged: fewer fields than header"
+        },
+        {
+          "line": 29,
+          "category": "valid",
+          "note": "more fields than header"
+        },
+        {
+          "line": 30,
+          "category": "valid",
+          "dup_of": 2
+        }
+      ],
+      "notes": "dup_of 'pending-normalizer' depends on worker normalize rules, fill in once decided"
+    },
+    "edge_semicolon_cp1252.csv": {
+      "shape": "european excel",
+      "encoding": "cp1252",
+      "bom": false,
+      "delimiter": ";",
+      "header_line": 1,
+      "url_column": "URL",
+      "data_records": 8,
+      "notes": "not valid UTF-8, so encoding must be detected, not assumed"
+    },
+    "edge_preamble_header.csv": {
+      "shape": "edge cases",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 4,
+      "url_column": "Source url",
+      "data_records": 8,
+      "notes": "header is line 4, lines 1-3 are a preamble and a blank line"
+    },
+    "edge_duplicate_headers.csv": {
+      "shape": "edge cases",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "URL (first of two)",
+      "data_records": 5,
+      "notes": "two columns named URL and one blank header. Header-text-only mapping cannot pick one, mapping needs the column index"
+    },
+    "edge_headers_only.csv": {
+      "shape": "edge cases",
+      "encoding": "utf-8",
+      "bom": false,
+      "delimiter": ",",
+      "header_line": 1,
+      "url_column": "url",
+      "data_records": 0,
+      "notes": "header, no rows"
+    },
+    "edge_empty.csv": {
+      "shape": "edge cases",
+      "encoding": "n/a",
+      "bom": false,
+      "delimiter": "n/a",
+      "header_line": null,
+      "url_column": null,
+      "data_records": 0,
+      "notes": "0 bytes. The upload form refuses it, the worker must still cope"
+    }
+  }
+}

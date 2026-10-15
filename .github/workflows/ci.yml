@@ -25,29 +25,33 @@ jobs:
 
   db:
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_USER: postgres
-          POSTGRES_DB: postgres
-        ports:
-          - 5432:5432
-        options: --health-cmd pg_isready --health-interval 10s --health-timeout 5s --health-retries 5
+    # Let supabase manage its own Postgres to avoid role/ownership conflicts
     steps:
       - uses: actions/checkout@v4
       - uses: supabase/setup-cli@v1
         with: { version: latest }
-      - run: supabase start
+      - uses: astral-sh/setup-uv@v5
+      - name: Start Supabase (with retries)
+        run: |
+          for i in 1 2 3; do
+            if supabase start; then
+              echo "supabase started"
+              break
+            fi
+            echo "supabase start failed; retrying in $((i * 10))s..."
+            sleep $((i * 10))
+            if [ "$i" -eq 3 ]; then
+              echo "supabase start failed after 3 attempts"
+              exit 1
+            fi
+          done
       - run: supabase db reset
       - run: supabase test db
 
-      # Worker integration tests (merged into db job to share the DB service)
+      # Worker integration tests (run against supabase-managed DB)
       - name: Install worker dependencies
         working-directory: apps/worker
-        run: |
-          uv sync --frozen
+        run: uv sync --frozen
       - name: Create worker DB user
         run: |
           export PGPASSWORD=postgres
@@ -63,8 +67,8 @@ jobs:
       - name: Run worker integration tests
         working-directory: apps/worker
         env:
-          TEST_WORKER_DATABASE_URL: postgresql://worker:worker@127.0.0.1:5432/postgres
-          TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/postgres
+          TEST_WORKER_DATABASE_URL: postgresql://worker:worker@127.0.0.1:54322/postgres
+          TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: uv run pytest -m integration
 
   worker:

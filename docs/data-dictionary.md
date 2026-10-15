@@ -418,3 +418,62 @@ Access: select with `system.view_health`. Worker role has full access.
 ### Error codes the app maps to messages
 Additional M3 error codes: `no_claimable_rows`, `lease_expired`, `max_attempts_exceeded`.
 See `apps/web/src/lib/db-errors.ts`.
+
+
+## M4: competitor gap (CSV)
+
+Migration: `20261014180000_m4_csv_schema.sql`. Paste into `docs/data-dictionary.md`.
+
+Files live in Storage. The worker parses them (ADR 0008) and stages one row
+per CSV line. Clients never write status, counts or staged rows.
+
+### `public.mapping_templates`
+Saved column mappings, reusable across uploads.
+
+| Column | Type | Meaning |
+|---|---|---|
+| id | uuid | Primary key. |
+| name | text | Unique per kind, ignoring case. |
+| kind | text | `competitor` or `client`. |
+| mapping | jsonb object | `{ url_column, columns: [{ source, label, type }] }`, type `text`, `number`, `date` or `ignore`. Header-based, so it matches any export with the same headers. |
+| shared | boolean | Visible to everyone with `csv.upload` or `mapping_templates.manage`. Otherwise only the creator. |
+| created_by | uuid | Defaults to caller. |
+
+Access: select needs `csv.upload` or `mapping_templates.manage`. Writes need `mapping_templates.manage`.
+
+### `public.csv_uploads`
+One uploaded file for one job.
+
+| Column | Type | Meaning |
+|---|---|---|
+| job_id | uuid | Deleted with the job. |
+| kind | text | `competitor` or `client`. |
+| competitor_label | text | Competitor registered domain. Required for competitor, null for client. G10 counts distinct labels. |
+| filename, storage_path, size_bytes | | Storage path is unique. |
+| status | `csv_upload_status` | `uploaded`, `mapped`, `processing`, `ready`, `confirmed`, `failed`, `discarded`. |
+| status_reason | text | Why it failed or was discarded. |
+| mapping, template_id | jsonb, uuid | Mapping used. Required from `mapped` onward. |
+| file_info | jsonb | Worker findings: encoding, delimiter, header row. |
+| total_rows, valid_rows, invalid_rows, empty_rows | integer | Add up exactly when `ready` or `confirmed`. |
+| duplicate_rows | integer | Repeats inside the file. A subset of valid rows. |
+| error_report_path | text | Downloadable error CSV. |
+
+Rules:
+- One active file per (job, competitor label). A `failed` or `discarded` file does not block a re-upload (history kept, I3).
+- Several client files per job are allowed. DEFAULT-ASSUMED (M4-P1).
+- Upload and mapping save are allowed only while the job is Draft. Direct mapping edits only while status is `uploaded`. Later moves go through an RPC (M4-S3).
+- Access: select needs `jobs.view`. Insert and mapping update need `csv.upload`.
+
+### `public.csv_rows`
+Staging, one row per CSV line, including empty and invalid lines.
+
+| Column | Type | Meaning |
+|---|---|---|
+| upload_id, row_no | uuid, integer | Primary key. Deleted with the upload. |
+| raw_url | text | As in the file, max 4096. |
+| normalized_url, host, domain | text | Set when valid. Same shape rules as `opportunities`. |
+| extras | jsonb object | Optional columns, keyed by mapping label. |
+| is_valid, is_duplicate | boolean | Duplicate only for valid rows. |
+| error_code | text | Required when invalid: `empty_row`, `bad_url`, `not_http`, `too_long`. |
+
+Access: select needs `csv.upload`. Worker writes. Purged after import is confirmed (M9-S3).
