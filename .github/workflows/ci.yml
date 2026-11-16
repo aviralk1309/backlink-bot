@@ -67,6 +67,7 @@ jobs:
       - name: Run worker integration tests
         working-directory: apps/worker
         env:
+          DATABASE_URL: postgresql://worker:worker@127.0.0.1:54322/postgres
           TEST_WORKER_DATABASE_URL: postgresql://worker:worker@127.0.0.1:54322/postgres
           TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: uv run pytest -m integration
