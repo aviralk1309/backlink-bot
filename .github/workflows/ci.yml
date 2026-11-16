@@ -55,7 +55,7 @@ jobs:
       - name: Create worker DB user
         run: |
           export PGPASSWORD=postgres
-          psql -h 127.0.0.1 -U postgres -d postgres -c "
+          psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -c "
             DO \$\$ 
             BEGIN 
               IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname='worker') THEN 
