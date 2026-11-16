@@ -75,16 +75,14 @@ test("create, assign, restrict and delete a role", async ({
     await login(userPage, E2E_USER.email, E2E_PASSWORD);
 
     await expect(userPage.getByRole("link", { name: "Jobs" })).toBeVisible();
-    await expect(
-      userPage.getByRole("link", { name: "Reports" }),
-    ).toBeVisible();
+    await expect(userPage.getByRole("link", { name: "Reports" })).toBeVisible();
     await expect(
       userPage.getByRole("link", { name: "Admin", exact: true }),
     ).toHaveCount(0);
 
     await userPage.goto("/admin/roles");
     await expect(
-    userPage.getByRole("heading", { name: "No access" }),
+      userPage.getByRole("heading", { name: "No access" }),
     ).toBeVisible();
     await ctx.close();
   });
@@ -97,9 +95,9 @@ test("create, assign, restrict and delete a role", async ({
         "1 user still has this role. Move them to another role first.",
       ),
     ).toBeVisible();
-    await expect(
-      page.getByRole("button", { name: "Delete role" }),
-    ).toHaveCount(0);
+    await expect(page.getByRole("button", { name: "Delete role" })).toHaveCount(
+      0,
+    );
   });
 
   await test.step("after moving the user away, delete works", async () => {

@@ -1,0 +1,7 @@
+Source URL,Page Title,Anchor Text,Domain Rating
+https://example.com/guides/a,Guide A,Acme CRM,42
+https://example.com/guides/a?utm_source=newsletter,Guide A duplicate,Acme CRM,42
+https://example.net/resources/a,Resource A,CRM tools,55
+ftp://example.org/file,Wrong scheme,download,10
+bad-url,Bad URL,broken,20
+,,,

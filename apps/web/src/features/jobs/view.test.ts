@@ -69,8 +69,12 @@ describe("pageRange", () => {
 });
 
 describe("parseTab", () => {
-  it("accepts the three tabs and falls back to overview", () => {
+  it("accepts the valid tabs and falls back to overview", () => {
+    expect(parseTab("results")).toBe("results");
+    expect(parseTab("queries")).toBe("queries");
+    expect(parseTab("report")).toBe("report");
     expect(parseTab("settings")).toBe("settings");
+    expect(parseTab("uploads")).toBe("uploads");
     expect(parseTab("activity")).toBe("activity");
     expect(parseTab("nope")).toBe("overview");
     expect(parseTab(undefined)).toBe("overview");
@@ -111,6 +115,38 @@ describe("describeEvent", () => {
     payload: Record<string, unknown> = {},
     config_version: number | null = 1,
   ) => ({ type, payload, config_version });
+
+  it("describes a results export", () => {
+    expect(describeEvent(ev("results_export_started"))).toBe(
+      "Started a CSV results export.",
+    );
+  });
+
+  it("explains a capped search plan", () => {
+    expect(describeEvent(ev("query_plan_capped", { generated: 20 }))).toBe(
+      "Generated 20 search queries. More combinations were available than the credit budget allows.",
+    );
+  });
+
+  it("explains unusable search results", () => {
+    expect(describeEvent(ev("search_results_rejected", { rejected: 7 }))).toBe(
+      "Excluded 7 unusable search results before saving.",
+    );
+    expect(
+      describeEvent(ev("search_spend_uncertain", { reserved_credits: 1 })),
+    ).toBe(
+      "Reserved 1 credit after an uncertain search response. Check provider usage before retrying.",
+    );
+  });
+
+  it("describes query retry audit entries", () => {
+    expect(describeEvent(ev("query_retried"))).toBe(
+      "Retried a failed search query.",
+    );
+    expect(describeEvent(ev("status_changed", { action: "retry_query" }))).toBe(
+      "Reopened the job to retry a failed search query.",
+    );
+  });
 
   it("describes creation", () => {
     expect(describeEvent(ev("created"))).toBe("Created the job.");

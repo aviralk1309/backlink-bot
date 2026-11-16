@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState, useState, type ReactNode } from "react";
+import { useActionState, useMemo, useState, type ReactNode } from "react";
 import { ChevronRight, Loader2 } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,7 +12,8 @@ import { saveJobAction } from "./actions";
 import { ChipInput } from "./chip-input";
 import { FIELD, LIMITS, type JobFormValues } from "./form-values";
 import { COUNTRIES, LANGUAGES } from "./locales";
-import type { ActivityOption, JobStatus } from "./types";
+import { previewQueries } from "./query-preview";
+import type { ActivityPlanProfile, JobStatus } from "./types";
 
 const initialState: FormState = {};
 
@@ -177,7 +178,7 @@ export function JobForm({
   status,
 }: {
   values: JobFormValues;
-  activities: ActivityOption[];
+  activities: ActivityPlanProfile[];
   /** null when creating. */
   status: JobStatus | null;
 }) {
@@ -193,6 +194,7 @@ export function JobForm({
 
   const editing = values.id !== null;
   const started = status !== null && status !== "draft";
+  const preview = useMemo(() => previewQueries(v, activities), [v, activities]);
 
   // A disabled activity stays visible only on a job that already had it.
   const visibleActivities = activities.filter(
@@ -400,7 +402,7 @@ export function JobForm({
 
       <Section
         title="Discovery sources"
-        description="A job needs at least one source to start: a credit budget above 0, seed list URLs, or competitor domains."
+        description="A job needs at least one source to start: a credit budget above 0, seed list URLs, competitor domains, or a confirmed competitor CSV with usable rows."
       >
         <ChipInput
           name={FIELD.competitorDomains}
@@ -548,6 +550,110 @@ export function JobForm({
             />
           </div>
         </Disclosure>
+      </Section>
+
+      <Section
+        title="Search preview"
+        description="Based on the current activity templates and these draft settings. Saving does not spend credits."
+      >
+        {!preview ? (
+          <p className="text-muted-foreground text-sm">
+            Choose a country and language, then enter a valid credit budget and
+            page limit to see the search plan.
+          </p>
+        ) : preview.budget === 0 ? (
+          <p className="text-muted-foreground text-sm">
+            Google search is off for this job because the credit budget is 0.
+          </p>
+        ) : (
+          <div className="space-y-3 text-sm">
+            <p>
+              <strong>Credit budget: {preview.budget}.</strong> Planned
+              first-page requests: {preview.rows.length}.{" "}
+              {preview.maxPage > 1
+                ? `Pages 2 through ${preview.maxPage} are considered only when the previous page adds a new domain.`
+                : "Only page 1 is allowed."}
+            </p>
+            {preview.rows.length === 0 ? (
+              <Notice tone="info">
+                No search query can be built yet. Add a seed keyword and choose
+                an activity with a matching search template.
+              </Notice>
+            ) : (
+              <div className="grid gap-4 sm:grid-cols-3">
+                <div>
+                  <h3 className="font-medium">Keywords</h3>
+                  <ul className="text-muted-foreground mt-1 space-y-1">
+                    {preview.keywords.map((keyword) => (
+                      <li key={keyword}>
+                        {keyword}:{" "}
+                        {
+                          preview.rows.filter((row) => row.keyword === keyword)
+                            .length
+                        }
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                <div>
+                  <h3 className="font-medium">Activities</h3>
+                  <ul className="text-muted-foreground mt-1 space-y-1">
+                    {preview.activities.map((activity) => (
+                      <li key={activity}>
+                        {activities.find((a) => a.key === activity)?.name ??
+                          activity}
+                        :{" "}
+                        {
+                          preview.rows.filter(
+                            (row) => row.activity === activity,
+                          ).length
+                        }
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+                {preview.locations.length ? (
+                  <div>
+                    <h3 className="font-medium">Cities or regions</h3>
+                    <ul className="text-muted-foreground mt-1 space-y-1">
+                      {preview.locations.map((location) => (
+                        <li key={location}>
+                          {location}:{" "}
+                          {
+                            preview.rows.filter(
+                              (row) => row.location === location,
+                            ).length
+                          }
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ) : null}
+              </div>
+            )}
+            {preview.omittedKeywords.length ||
+            preview.omittedActivities.length ||
+            preview.omittedLocations.length ? (
+              <Notice tone="info">
+                No first-page search for:{" "}
+                {[
+                  ...preview.omittedKeywords.map((item) => `keyword “${item}”`),
+                  ...preview.omittedActivities.map(
+                    (item) => `activity “${item}”`,
+                  ),
+                  ...preview.omittedLocations.map((item) => `region “${item}”`),
+                ].join(", ")}
+                . Increase the budget or narrow the targeting if coverage
+                matters.
+              </Notice>
+            ) : null}
+            {preview.rows.length ? (
+              <p className="text-muted-foreground text-xs">
+                First query: {preview.rows[0]!.query}
+              </p>
+            ) : null}
+          </div>
+        )}
       </Section>
 
       <Section

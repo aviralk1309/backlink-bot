@@ -1,0 +1,51 @@
+begin;
+select plan(25);
+select ok(not has_table_privilege('authenticated','public.job_rescore_requests','insert'),'browser cannot forge requests');
+select ok(not has_column_privilege('worker','public.job_rescore_requests','scoring_snapshot','update'),'worker cannot change confirmed weights');
+select ok(not has_table_privilege('authenticated','public.scoring_policy','update'),'policy is operator managed');
+select ok(not has_function_privilege('authenticated','public.worker_next_rescore()','execute'),'browser cannot consume requests');
+select ok(not has_function_privilege('authenticated','public.worker_save_opportunity_score(uuid,text,integer,integer,numeric,public.opportunity_tier,jsonb)','execute'),'browser cannot publish scores');
+select ok(has_function_privilege('worker','public.worker_save_opportunity_score(uuid,text,integer,integer,numeric,public.opportunity_tier,jsonb)','execute'),'worker can publish scores');
+select ok(not has_function_privilege('anon','public.request_job_rescore(uuid,boolean)','execute'),'anonymous cannot request rescoring');
+insert into public.roles(id,name) values ('97000000-0000-0000-0000-000000000001','S7 test role');
+insert into public.role_permissions(role_id,permission_key) values
+ ('97000000-0000-0000-0000-000000000001','jobs.view'),('97000000-0000-0000-0000-000000000001','jobs.rescore');
+insert into auth.users(id,email) values ('97000000-0000-0000-0000-000000000002','scoring@tests.local');
+update public.profiles set status='active',role_id='97000000-0000-0000-0000-000000000001' where id='97000000-0000-0000-0000-000000000002';
+insert into public.jobs(id,name,status,activity_keys) values
+ ('97000000-0000-0000-0000-000000000003','S7 finished','completed',array['guest_post']),
+ ('97000000-0000-0000-0000-000000000004','S7 active','running',array['guest_post']);
+insert into public.job_config_history(job_id,version,snapshot)
+ select id,config_version,public.job_config_snapshot(j) from public.jobs j where id='97000000-0000-0000-0000-000000000003';
+select is((select snapshot->'scoring'->'policy'->>'version' from public.job_config_history where job_id='97000000-0000-0000-0000-000000000003' and version=1),'1','new history pins scoring policy');
+select is((select snapshot->'scoring'->'profiles'->'guest_post'->'weights'->>'relevance' from public.job_config_history where job_id='97000000-0000-0000-0000-000000000003' and version=1),'35','new history pins activity weights');
+select set_config('request.jwt.claim.sub','97000000-0000-0000-0000-000000000002',true);
+set local role authenticated;
+select throws_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',false)$$,'22023','rescore_confirmation_required','false confirmation rejected');
+select throws_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',null)$$,'22023','rescore_confirmation_required','null confirmation rejected');
+select throws_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000004',true)$$,'55000','rescore_requires_idle_finished_job','running job cannot be rescored');
+select lives_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',true)$$,'authorized confirmed request queues');
+select lives_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',true)$$,'duplicate request idempotent');
+select is((select count(*)::integer from public.job_rescore_requests where job_id='97000000-0000-0000-0000-000000000003'),1,'one durable request');
+select is((select status from public.job_rescore_requests where job_id='97000000-0000-0000-0000-000000000003'),'pending','request pending until worker commit');
+reset role;
+update public.activity_profiles set scoring_weights='{"relevance":50,"language_region":10,"activity_fit":20,"overlap":10,"multi_query":10,"spam_penalty":30}' where key='guest_post';
+select is((select scoring_snapshot->'profiles'->'guest_post'->'weights'->>'relevance' from public.job_rescore_requests where job_id='97000000-0000-0000-0000-000000000003'),'35','confirmed request immune to later edits');
+select is((select snapshot->'scoring'->'profiles'->'guest_post'->'weights'->>'relevance' from public.job_config_history where job_id='97000000-0000-0000-0000-000000000003' and version=1),'35','history remains immutable');
+select is((select count(*)::integer from public.job_events where job_id='97000000-0000-0000-0000-000000000003' and type='rescore_requested'),1,'one audit event');
+select is((select count(*)::integer from public.worker_next_rescore()),1,'worker claims confirmed request');
+reset role;
+update public.profiles set status='rejected' where id='97000000-0000-0000-0000-000000000002';
+set local role authenticated;
+select throws_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',true)$$,'42501','permission_denied','inactive user rejected');
+select is((select count(*)::integer from public.job_rescore_requests),0,'inactive user cannot read requests');
+reset role;
+update public.profiles set status='active' where id='97000000-0000-0000-0000-000000000002';
+delete from public.role_permissions where role_id='97000000-0000-0000-0000-000000000001' and permission_key='jobs.rescore';
+set local role authenticated;
+select throws_ok($$select public.request_job_rescore('97000000-0000-0000-0000-000000000003',true)$$,'42501','permission_denied','view permission alone cannot rescore');
+reset role;
+select is((select count(*)::integer from public.opportunities where job_id='97000000-0000-0000-0000-000000000003'),0,'request does not create opportunities');
+select is((select status::text from public.jobs where id='97000000-0000-0000-0000-000000000003'),'completed','request does not alter job lifecycle');
+select * from finish();
+rollback;

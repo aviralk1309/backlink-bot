@@ -109,7 +109,9 @@ export const START_PROBLEM_TEXT: Record<string, string> = {
   activity_unknown: "One of the selected activities no longer exists.",
   activity_disabled: "One of the selected activities is disabled.",
   no_source:
-    "Add a source: a Serper credit budget above 0, seed list URLs or competitor domains.",
+    "Add a source: a Serper credit budget above 0, seed list URLs, competitor domains or a confirmed competitor CSV with usable rows.",
+  unconfirmed_csv:
+    "Finish mapping and confirming each uploaded CSV, or discard files you do not want included.",
 };
 
 export function startProblemText(code: string): string {

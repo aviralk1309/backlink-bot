@@ -7,7 +7,7 @@ import { buttonVariants } from "@/components/ui/button";
 import { Notice } from "@/components/ui/notice";
 import { jobToFormValues } from "@/features/jobs/form-values";
 import { JobForm } from "@/features/jobs/job-form";
-import { getJob, listActivityOptions } from "@/features/jobs/queries";
+import { getJob, listActivityPlanProfiles } from "@/features/jobs/queries";
 import { isEditable, JOB_STATUS_LABELS } from "@/features/jobs/rules";
 import { jobIdSchema } from "@/features/jobs/schemas";
 import { requirePagePermission } from "@/lib/auth/guard";
@@ -31,7 +31,7 @@ async function EditJobContent({ params }: Props) {
 
   const [job, activities] = await Promise.all([
     getJob(id),
-    listActivityOptions(),
+    listActivityPlanProfiles(),
   ]);
   if (!job) notFound();
 
@@ -70,7 +70,7 @@ async function EditJobContent({ params }: Props) {
         </p>
       </div>
       <JobForm
-        key={job.id}
+        key={`${job.id}:${job.updated_at}`}
         values={jobToFormValues(job)}
         activities={activities}
         status={job.status}

@@ -98,9 +98,20 @@ export type ActivityOption = {
   enabled: boolean;
 };
 
+export type ActivityPlanProfile = ActivityOption & {
+  footprint_templates: {
+    id: string;
+    template: string;
+    language: string;
+    priority: number;
+    enabled: boolean;
+  }[];
+};
+
 /** One row of public.job_stats, the live counters on the Overview tab. */
 export type JobStats = {
   credits_used: number;
+  credits_uncertain: number;
   queries_total: number;
   queries_done: number;
   unique_opportunities: number;
@@ -113,6 +124,7 @@ export type JobLive = { status: JobStatus; stats: JobStats };
 
 export const EMPTY_JOB_STATS: JobStats = {
   credits_used: 0,
+  credits_uncertain: 0,
   queries_total: 0,
   queries_done: 0,
   unique_opportunities: 0,

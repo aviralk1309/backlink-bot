@@ -24,4 +24,8 @@ describe("visibleNavItems", () => {
     expect(labels(["roles.manage"])).toEqual(["Admin"]);
     expect(labels(["users.manage"])).toEqual(["Admin"]);
   });
+
+  it("shows Reports for report permission alone", () => {
+    expect(labels(["reports.view"])).toEqual(["Reports"]);
+  });
 });

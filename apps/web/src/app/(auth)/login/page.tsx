@@ -16,6 +16,22 @@ async function LoginContent({ searchParams }: { searchParams: SearchParams }) {
   );
 }
 
+function LoginSkeleton() {
+  return (
+    <div className="space-y-4">
+      <div className="space-y-1.5">
+        <div className="bg-muted h-4 w-12 animate-pulse rounded" />
+        <div className="bg-muted/60 h-10 w-full animate-pulse rounded-md" />
+      </div>
+      <div className="space-y-1.5">
+        <div className="bg-muted h-4 w-16 animate-pulse rounded" />
+        <div className="bg-muted/60 h-10 w-full animate-pulse rounded-md" />
+      </div>
+      <div className="bg-primary/40 h-10 w-full animate-pulse rounded-md" />
+    </div>
+  );
+}
+
 export default function LoginPage({
   searchParams,
 }: {
@@ -33,7 +49,7 @@ export default function LoginPage({
         </>
       }
     >
-      <Suspense fallback={<LoginForm next="/" />}>
+      <Suspense fallback={<LoginSkeleton />}>
         <LoginContent searchParams={searchParams} />
       </Suspense>
     </AuthShell>

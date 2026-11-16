@@ -1,0 +1,102 @@
+[
+  {
+    "file": "guest_post.html",
+    "check": "activity_fit",
+    "status": "pass",
+    "reason": "activity_matches"
+  },
+  {
+    "file": "resources.html",
+    "check": "activity_fit",
+    "status": "pass",
+    "reason": "activity_matches"
+  },
+  {
+    "file": "spam.html",
+    "check": "spam_signals",
+    "status": "fail",
+    "reason": "spam_outbound_ratio"
+  },
+  {
+    "file": "noindex.html",
+    "check": "indexable",
+    "status": "fail",
+    "reason": "meta_noindex"
+  },
+  {
+    "file": "hidden.html",
+    "check": "banned_category",
+    "status": "pass",
+    "reason": "banned_categories_clear"
+  },
+  {
+    "file": "language_en.html",
+    "check": "language",
+    "target": "en",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_fr.html",
+    "check": "language",
+    "target": "fr",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_de.html",
+    "check": "language",
+    "target": "de",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_es.html",
+    "check": "language",
+    "target": "es",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_hi.html",
+    "check": "language",
+    "target": "hi",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_bn.html",
+    "check": "language",
+    "target": "bn",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_zh.html",
+    "check": "language",
+    "target": "zh",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_ja.html",
+    "check": "language",
+    "target": "ja",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_ar.html",
+    "check": "language",
+    "target": "ar",
+    "status": "pass",
+    "reason": "language_matches"
+  },
+  {
+    "file": "language_ru.html",
+    "check": "language",
+    "target": "ru",
+    "status": "pass",
+    "reason": "language_matches"
+  }
+]

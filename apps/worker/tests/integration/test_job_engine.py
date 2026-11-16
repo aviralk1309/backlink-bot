@@ -54,8 +54,8 @@ def job_id() -> Iterator[str]:
     jid = str(uuid.uuid4())
     with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
         admin.execute(
-            "insert into public.jobs (id, name, status)"
-            " values (%s::uuid, 'M3-S6 engine test', 'running')",
+            "insert into public.jobs (id, name, status, per_domain_cap)"
+            " values (%s::uuid, 'M3-S6 engine test', 'running', 1000)",
             (jid,),
         )
     try:

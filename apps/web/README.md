@@ -1,39 +1,25 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Web dashboard
 
-## Getting Started
+The Next.js app provides sign-in, job setup and monitoring, CSV mapping, results review, reporting, and admin tools. See the [project overview](../../README.md) and [development setup](../../docs/development.md) for the full system and local setup.
 
-First, run the development server:
+## Run locally
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
+From this directory, install dependencies and create `.env.local` from `.env.example`. Set the local Supabase URL, anon key, and server-only service role key; see [environment variables](../../docs/secrets.md).
+
+```sh
+pnpm install --frozen-lockfile
 pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+The dashboard runs at `http://localhost:3000`. Supabase must be running from the repository root. To create the first admin user, follow [the bootstrap guide](../../docs/development.md#7-create-first-admin-user).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Checks
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```sh
+pnpm lint
+pnpm typecheck
+pnpm test
+pnpm e2e
+```
 
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
-
-
-pnpm bootstrap:admin --confirm-url http://127.0.0.1:54321
+Browser tests require local Supabase and use the setup described in the [testing guide](../../docs/testing.md).

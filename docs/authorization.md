@@ -63,21 +63,22 @@ M2 added no permissions. It uses the ones already in the catalog.
 ## Results and pipeline (M3)
 
 M3 introduced the opportunities pipeline. Access to results is controlled by
-the existing `results.*` permissions from M1.
+`results.*` permissions; M6-S4 added `results.reopen`.
 
 | Permission | What it allows | Where it is enforced |
 |---|---|---|
-| `results.view` | See non-filtered results | RLS on `opportunities`, `opportunity_sources`, `job_stats`; results tables and overview counters |
-| `results.view_filtered` | See auto-filtered results | RLS on `opportunities`; shows hidden results |
-| `results.review` | Mark results as Approved/Rejected/Used (M6) | Will gate review actions |
-| `results.export` | Export results as CSV (M6) | Will gate export |
-| `results.release_batch` | Release next batch from backlog (M6) | Will gate batch release |
+| `results.view` | See non-filtered results | RLS on `opportunities`, `opportunity_sources`, `job_stats`; M6-S2 job Results tab and permission-checked page queries |
+| `results.view_filtered` | See auto-filtered results | RLS on `opportunities`; S2 Auto-filtered tab and All/grouped page queries include these rows only with this permission |
+| `results.review` | Edit result notes and metrics; claim, approve, reject, and mark Used | S3 metadata RPC and S4 review RPC check this and `results.view`, lock rows, compare `row_version`, and use the S1 audit trigger. |
+| `results.reopen` | Reopen Approved, Rejected, or Used results | S4 review RPC checks this separately. Admin has it by default; Manager and Viewer do not. All reopens are audited. |
+| `results.export` | Export visible results as CSV | M6-S7 download route, bounded export batch RPC, and audit RPC all check it alongside `jobs.view` and `results.view`. Auto-filtered rows still require `results.view_filtered`. |
+| `results.release_batch` | Release next batch from backlog | M6-S6 job queue control and `release_backlog` RPC; SQL also requires `jobs.view` and `results.view` and rechecks pending capacity. |
 
 ### What to know
 
-- **Opportunities are read-only to clients.** All writes happen through
-  SQL functions called by the worker role. Clients may only read through
-  `results.view` and `results.view_filtered`.
+- **Opportunity table writes are closed to browser roles.** Workers publish
+  pipeline fields through worker functions. Reviewers edit metadata and
+  decisions only through permission-checked, audited functions.
 - **Auto-filtered rows are hidden by default.** Users need both
   `results.view` and `results.view_filtered` to see rows marked as
   `queue_group = 'auto_filtered'`.
@@ -164,3 +165,29 @@ because the job form lists them.
 - `apps/worker/tests/integration/test_heartbeat.py`: worker heartbeat.
 - `apps/worker/tests/integration/test_record_discovery_race.py`:
   concurrent discovery and deduplication.
+
+## Competitor gap CSV (M4)
+
+| Permission | What it allows | Where it is enforced |
+|---|---|---|
+| `csv.upload` | Upload, discard competitor/client CSVs, save column mappings, read staged rows | RLS on `csv_uploads`, `csv_rows`, `storage.objects`; `registerCsvUploadAction`, `discardCsvUploadAction`, `saveCsvMappingAction`, `save_csv_mapping` RPC |
+| `mapping_templates.manage` | Create, edit, and delete shared column mapping templates | RLS on `mapping_templates` |
+
+### What to know
+
+- **Storage bucket `csv-uploads` is private.** Direct uploads require `csv.upload` and a job in Draft status. Files are named `<job_id>/<upload_id>.csv`.
+- **Status is server-managed.** Clients cannot set status or counts directly on `csv_uploads`. Discarding is done via the security-definer function `discard_csv_upload`, and column mapping is validated and applied via `save_csv_mapping`.
+- **Staged rows require `csv.upload`.** Raw URLs and extras from competitor files are protected by `csv.upload`, not just `jobs.view`.
+
+## M4 tests
+
+- `supabase/tests/database/080_m4_csv_schema.test.sql`: privileges, RLS policies, and constraints on `csv_uploads`, `csv_rows`, and `mapping_templates`.
+- `supabase/tests/database/081_m4_csv_storage.test.sql`: storage bucket limits, object paths, RLS policies, and `discard_csv_upload` behavior.
+- `supabase/tests/database/082_m4_save_csv_mapping.test.sql`: `save_csv_mapping` RPC validation, negative `url_index` checks, permissions, mapping persistence, and status transitions.
+- `apps/web/src/features/csv/rules.test.ts`: competitor label normalization, file validation, byte formatting, and template remapping by header name.
+- `apps/web/src/features/csv/sample.test.ts`: RFC 4180 CSV preview parsing, multiline cells, delimiter detection, and preamble handling.
+- `apps/web/e2e/csv-mapping.spec.ts`: E2E test for CSV upload, column mapping preview, template saving, and mapped status transition.
+Fetch dispatch coordination uses `worker_acquire_fetch_slot(text, double precision)`.
+Only `worker` can execute this SECURITY DEFINER function. `fetch_domain_limits`
+has RLS enabled with no API policies; `anon`, `authenticated`, `service_role`, and
+`worker` have no direct table privileges. API users cannot reset dispatch clocks.

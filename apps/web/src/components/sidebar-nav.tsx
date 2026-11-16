@@ -4,9 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Briefcase,
-  FileText,
   LayoutDashboard,
   Link2,
+  ChartNoAxesCombined,
   ShieldCheck,
   type LucideIcon,
 } from "lucide-react";
@@ -19,7 +19,7 @@ export type NavItem = { readonly label: string; readonly href: string };
 const ICONS: Record<string, LucideIcon> = {
   "/": LayoutDashboard,
   "/jobs": Briefcase,
-  "/reports": FileText,
+  "/reports": ChartNoAxesCombined,
   "/admin": ShieldCheck,
 };
 

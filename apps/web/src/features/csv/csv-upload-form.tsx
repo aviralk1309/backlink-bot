@@ -1,10 +1,12 @@
 "use client";
 
 import { useRef, useState, useTransition } from "react";
+import { Upload } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { createClient } from "@/lib/supabase/client";
+import { cn } from "@/lib/utils";
 import { registerCsvUploadAction } from "./actions";
 import {
   ACCEPTED_EXTENSIONS,
@@ -14,6 +16,7 @@ import {
 } from "./limits";
 import {
   checkCsvFile,
+  competitorFilenameMismatch,
   csvStoragePath,
   formatBytes,
   normalizeCompetitorLabel,
@@ -30,6 +33,8 @@ export function CsvUploadForm({ jobId }: { jobId: string }) {
   const [competitor, setCompetitor] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [fileName, setFileName] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -37,6 +42,7 @@ export function CsvUploadForm({ jobId }: { jobId: string }) {
 
   function reset() {
     setCompetitor("");
+    setFileName(null);
     if (fileRef.current) fileRef.current.value = "";
   }
 
@@ -56,6 +62,8 @@ export function CsvUploadForm({ jobId }: { jobId: string }) {
         return setError("Enter the competitor's website, like example.com.");
       }
       label = normalized;
+      const mismatch = competitorFilenameMismatch(file.name, label);
+      if (mismatch) return setError(mismatch);
     }
 
     const uploadId = crypto.randomUUID();
@@ -93,6 +101,34 @@ export function CsvUploadForm({ jobId }: { jobId: string }) {
         setBusy(false);
       }
     });
+  }
+
+  function handleDragOver(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    if (!working) setIsDragging(true);
+  }
+
+  function handleDragLeave(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+  }
+
+  function handleDrop(e: React.DragEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(false);
+    if (working) return;
+    const file = e.dataTransfer.files?.[0];
+    if (!file) return;
+    if (fileRef.current) {
+      const dt = new DataTransfer();
+      dt.items.add(file);
+      fileRef.current.files = dt.files;
+      setFileName(file.name);
+      setError(null);
+    }
   }
 
   return (
@@ -140,17 +176,51 @@ export function CsvUploadForm({ jobId }: { jobId: string }) {
         <label htmlFor="csv-file" className="text-sm font-medium">
           File
         </label>
-        <Input
-          id="csv-file"
-          ref={fileRef}
-          type="file"
-          accept={ACCEPTED_EXTENSIONS.join(",")}
-          disabled={working}
-          aria-describedby="csv-file-help"
-        />
-        <p id="csv-file-help" className="text-muted-foreground text-xs">
-          {ACCEPTED_EXTENSIONS.join(", ")} up to {formatBytes(MAX_CSV_BYTES)}.
-        </p>
+        <div
+          onDragOver={handleDragOver}
+          onDragLeave={handleDragLeave}
+          onDrop={handleDrop}
+          onClick={() => fileRef.current?.click()}
+          className={cn(
+            "relative flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed p-6 text-center transition-colors",
+            isDragging
+              ? "border-primary bg-primary/5"
+              : "border-muted-foreground/25 hover:border-muted-foreground/50",
+            working && "pointer-events-none opacity-60",
+          )}
+        >
+          <Upload
+            className="text-muted-foreground mb-2 size-8"
+            aria-hidden="true"
+          />
+          <p className="text-sm font-medium">
+            {fileName ? (
+              <span className="text-foreground">{fileName}</span>
+            ) : (
+              <span>
+                Drag and drop your file here, or{" "}
+                <span className="text-primary hover:underline">browse</span>
+              </span>
+            )}
+          </p>
+          <p id="csv-file-help" className="text-muted-foreground mt-1 text-xs">
+            {ACCEPTED_EXTENSIONS.join(", ")} up to {formatBytes(MAX_CSV_BYTES)}.
+          </p>
+          <Input
+            id="csv-file"
+            ref={fileRef}
+            type="file"
+            accept={ACCEPTED_EXTENSIONS.join(",")}
+            disabled={working}
+            aria-describedby="csv-file-help"
+            className="sr-only"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              setFileName(f ? f.name : null);
+              setError(null);
+            }}
+          />
+        </div>
       </div>
 
       {error && (

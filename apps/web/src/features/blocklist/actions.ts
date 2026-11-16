@@ -1,14 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { AuthError, requirePermission } from "@/lib/auth/session";
+import { AuthError, requirePermission, type Session } from "@/lib/auth/session";
 import { firstIssue, type FormState } from "@/lib/auth/schemas";
 import { createClient } from "@/lib/supabase/server";
 import { describeDbError } from "@/lib/db-errors";
 import { addSummary } from "./rules";
 import {
   addBlocklistSchema,
+  blockFromReviewSchema,
   removeBlocklistSchema,
+  undoReviewBlockSchema,
   updateReasonSchema,
 } from "./schemas";
 
@@ -122,4 +124,105 @@ export async function removeBlockedDomainAction(
 
   refresh();
   return { message: "Domain removed." };
+}
+
+export type ReviewBlockState = FormState & {
+  undo?: { id: string; jobId: string; domain: string; reason: string } | null;
+  blocked?: boolean;
+};
+
+/** Block a domain only while a visible rejection still exists in this job. */
+export async function blockFromReviewAction(
+  _prev: ReviewBlockState,
+  formData: FormData,
+): Promise<ReviewBlockState> {
+  let session: Session;
+  try {
+    session = await requirePermission("blocklist.manage");
+  } catch (error) {
+    if (error instanceof AuthError) return FORBIDDEN;
+    throw error;
+  }
+  const supabase = await createClient();
+
+  if (formData.get("intent") === "undo") {
+    const parsed = undoReviewBlockSchema.safeParse({
+      id: formData.get("id"),
+      jobId: formData.get("job_id"),
+      domain: formData.get("domain"),
+      reason: formData.get("reason"),
+    });
+    if (!parsed.success) return { error: firstIssue(parsed.error) };
+    const { id, jobId, domain, reason } = parsed.data;
+    const { data, error } = await supabase
+      .from("blocklist")
+      .delete()
+      .eq("id", id)
+      .eq("domain", domain)
+      .eq("reason", reason)
+      .eq("source_job_id", jobId)
+      .eq("added_by", session.userId)
+      .select("id");
+    if (error) {
+      console.error("blockFromReviewAction undo failed", error.message);
+      return { error: describeDbError(error.message) };
+    }
+    if (!data?.length)
+      return {
+        error: "This entry changed or was removed. Check the global blocklist.",
+        undo: null,
+      };
+    refresh();
+    revalidatePath(`/jobs/${jobId}`);
+    return {
+      message: `${domain} removed from the global blocklist.`,
+      undo: null,
+    };
+  }
+
+  if (formData.get("intent") !== "add")
+    return { error: "Invalid blocklist action." };
+  try {
+    await requirePermission("results.view");
+  } catch (error) {
+    if (error instanceof AuthError) return FORBIDDEN;
+    throw error;
+  }
+  const parsed = blockFromReviewSchema.safeParse({
+    jobId: formData.get("job_id"),
+    resultId: formData.get("result_id") ?? undefined,
+    domain: formData.get("domain") ?? undefined,
+    reason: formData.get("reason"),
+  });
+  if (!parsed.success) return { error: firstIssue(parsed.error) };
+  const { jobId, resultId, domain, reason } = parsed.data;
+  const { data, error } = await supabase.rpc("block_rejected_domain", {
+    p_job_id: jobId,
+    p_result_id: resultId ?? null,
+    p_domain: domain ?? null,
+    p_reason: reason,
+  });
+  if (error) {
+    console.error("blockFromReviewAction add failed", error.message);
+    return { error: describeDbError(error.message) };
+  }
+  const row = data?.[0];
+  if (!row || row.outcome === "not_rejected")
+    return {
+      error: "This domain no longer has a visible rejected result in this job.",
+    };
+  if (row.outcome === "already_blocked")
+    return {
+      message: `${row.blocked_domain} is already globally blocked.`,
+      undo: null,
+      blocked: true,
+    };
+  if (row.outcome !== "added" || !row.entry_id || !row.blocked_domain)
+    return { error: "Could not add the domain to the blocklist. Try again." };
+  refresh();
+  revalidatePath(`/jobs/${jobId}`);
+  return {
+    message: `${row.blocked_domain} added to the global blocklist.`,
+    undo: { id: row.entry_id, jobId, domain: row.blocked_domain, reason },
+  };
 }

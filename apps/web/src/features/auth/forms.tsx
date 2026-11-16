@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useSyncExternalStore } from "react";
 import { Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import type { FormState } from "@/lib/auth/schemas";
@@ -14,6 +14,7 @@ import {
 import { AUTH_LINK, Field, FormError, FormSuccess } from "./auth-shell";
 
 const initial: FormState = {};
+const noopSubscribe = () => () => {};
 
 function SubmitButton({
   pending,
@@ -39,9 +40,18 @@ function SubmitButton({
 }
 
 export function LoginForm({ next, notice }: { next: string; notice?: string }) {
+  const hydrated = useSyncExternalStore(
+    noopSubscribe,
+    () => true,
+    () => false,
+  );
   const [state, formAction, pending] = useActionState(loginAction, initial);
   return (
-    <form action={formAction} className="space-y-4">
+    <form
+      action={formAction}
+      data-hydrated={hydrated ? "true" : undefined}
+      className="space-y-4"
+    >
       <input type="hidden" name="next" value={next} />
       <Field label="Email" name="email" type="email" autoComplete="email" />
       <Field

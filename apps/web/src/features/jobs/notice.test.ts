@@ -6,6 +6,10 @@ describe("savedNotice", () => {
     ["created", "Job created."],
     ["updated", "Job saved."],
     ["deleted", "Job deleted."],
+    [
+      "deleted_cleanup_pending",
+      "Job deleted. Its files are queued for cleanup.",
+    ],
   ])("maps %s", (flag, text) => {
     expect(savedNotice(flag)).toBe(text);
   });

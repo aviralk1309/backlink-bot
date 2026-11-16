@@ -23,8 +23,8 @@ select is(
 
 select is(
   (select count(*)::int from public.role_permissions),
-  33,
-  'pristine database: seeded grants unchanged (20 + 10 + 3). Run make db-verify'
+  34,
+  'pristine database: seeded grants unchanged (21 + 10 + 3). Run make db-verify'
 );
 
 select is(

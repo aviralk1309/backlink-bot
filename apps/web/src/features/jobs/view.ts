@@ -35,13 +35,24 @@ export function pageRange(page: number, total: number): PageRange {
 // Job detail
 // ---------------------------------------------------------------------
 
-export const JOB_TABS = ["overview", "settings", "data", "activity"] as const;
+export const JOB_TABS = [
+  "overview",
+  "queries",
+  "results",
+  "report",
+  "settings",
+  "uploads",
+  "activity",
+] as const;
 export type JobTab = (typeof JOB_TABS)[number];
 
 export const JOB_TAB_LABELS: Record<JobTab, string> = {
   overview: "Overview",
+  queries: "Queries",
+  results: "Results",
+  report: "Report",
   settings: "Settings",
-  data: "Data",
+  uploads: "Uploads",
   activity: "Activity",
 };
 
@@ -131,6 +142,24 @@ export function describeEvent(
   const p = e.payload;
 
   switch (e.type) {
+    case "query_retried":
+      return "Retried a failed search query.";
+    case "query_plan_capped":
+      return `Generated ${typeof p.generated === "number" ? p.generated : 0} search queries. More combinations were available than the credit budget allows.`;
+    case "search_results_rejected":
+      return `Excluded ${typeof p.rejected === "number" ? p.rejected : 0} unusable search results before saving.`;
+    case "search_spend_uncertain":
+      return `Reserved ${typeof p.reserved_credits === "number" ? p.reserved_credits : 0} credit${p.reserved_credits === 1 ? "" : "s"} after an uncertain search response. Check provider usage before retrying.`;
+    case "results_export_started":
+      return "Started a CSV results export.";
+    case "backlog_released":
+      return `Released ${typeof p.released === "number" ? p.released : 0} results from Backlog.`;
+    case "rescore_requested":
+      return "Requested rescoring with the current settings.";
+    case "rescore_completed":
+      return `Rescored ${typeof p.scored_count === "number" ? p.scored_count : "all eligible"} results.`;
+    case "rescore_failed":
+      return "Rescoring failed. No scores were changed.";
     case "created":
       return "Created the job.";
     case "edited":
@@ -148,6 +177,8 @@ export function describeEvent(
           return "Paused the job.";
         case "resume":
           return "Resumed the job.";
+        case "retry_query":
+          return "Reopened the job to retry a failed search query.";
         case "stop":
           return reason ? `Stopped the job: ${reason}` : "Stopped the job.";
         case "complete":

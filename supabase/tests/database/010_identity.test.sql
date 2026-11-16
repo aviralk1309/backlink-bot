@@ -30,14 +30,14 @@ select has_table('public', 'role_permissions', 'role_permissions exists');
 
 select is(
   (select count(*)::int from public.permissions),
-  20,
-  'catalog has 20 permissions'
+  21,
+  'catalog has 21 permissions'
 );
 
 select is(
   (select count(*)::int from public.role_permissions
    where role_id = 'a0000000-0000-0000-0000-000000000001'),
-  20,
+  21,
   'Admin holds every permission'
 );
 

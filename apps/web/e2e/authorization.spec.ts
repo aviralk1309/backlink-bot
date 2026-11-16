@@ -29,6 +29,43 @@ test("Admin lands on the first admin section", async ({ page }) => {
   await expect(page).toHaveURL(/\/admin\/users/);
 });
 
+test("Manager navigation does not poll forbidden worker health", async ({
+  page,
+}) => {
+  const admin = e2eAdminClient();
+  const { data: profile, error } = await admin
+    .from("profiles")
+    .select("id")
+    .eq("email", E2E_USER.email)
+    .single();
+  expect(error).toBeNull();
+  const userId = profile!.id;
+  const changed = await admin
+    .from("profiles")
+    .update({ role_id: MANAGER_ROLE_ID })
+    .eq("id", userId);
+  expect(changed.error).toBeNull();
+
+  const healthRequests: string[] = [];
+  page.on("request", (request) => {
+    if (new URL(request.url()).pathname === "/api/system/workers") {
+      healthRequests.push(request.url());
+    }
+  });
+  try {
+    await login(page, E2E_USER.email, E2E_PASSWORD);
+    await expect(page.getByRole("link", { name: "Jobs" })).toBeVisible();
+    await page.waitForTimeout(1000);
+    expect((await page.request.get("/api/system/workers")).status()).toBe(403);
+    expect(healthRequests).toEqual([]);
+  } finally {
+    await admin
+      .from("profiles")
+      .update({ role_id: VIEWER_ROLE_ID })
+      .eq("id", userId);
+  }
+});
+
 test("Viewer sees no Admin link and gets No access on every admin page", async ({
   page,
 }) => {
@@ -125,7 +162,10 @@ test("a Viewer cannot change roles or accounts through the API", async () => {
     .maybeSingle();
   expect(manager.data).not.toBeNull();
 
-  const leftovers = await admin.from("roles").select("id").eq("name", directName);
+  const leftovers = await admin
+    .from("roles")
+    .select("id")
+    .eq("name", directName);
   expect(leftovers.data).toEqual([]);
 
   await api.auth.signOut();
