@@ -31,6 +31,8 @@
 | SHUTDOWN_GRACE_SECONDS | worker | operator | 30.0 |
 | POOL_MAX_SIZE | worker | operator | 10 |
 | RUNNER_ENABLED | worker | operator | false |
+| SUPABASE_URL | worker (M4) | worker host only | `""` |
+| SUPABASE_SERVICE_ROLE_KEY | worker (M4) | worker host only | `""` |
 | SERPER_API_KEY | worker (M8) | worker host only | **required for M8** |
 
 ## Test environment

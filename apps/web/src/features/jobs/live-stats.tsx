@@ -43,7 +43,7 @@ export function LiveStats({ jobId, status, budget, initial }: Props) {
         // A hidden tab skips the request. Nobody is looking at the numbers.
         if (!document.hidden) {
           try {
-            const res = await fetch(`/api/jobs/${jobId}/stats`, {
+            const res = await fetch(`/jobs/${jobId}/stats`, {
               cache: "no-store",
               signal: controller.signal,
               headers: { accept: "application/json" },
@@ -85,9 +85,15 @@ export function LiveStats({ jobId, status, budget, initial }: Props) {
   const pct = creditPercent(stats.credits_used, budget);
   const items: { label: string; value: string; note?: string }[] = [
     {
-      label: "Credits used",
+      label: stats.credits_uncertain
+        ? "Credits used or reserved"
+        : "Credits used",
       value: formatCount(stats.credits_used),
-      note: budget > 0 ? `of ${formatCount(budget)}` : "no search budget",
+      note: stats.credits_uncertain
+        ? `${formatCount(stats.credits_used - stats.credits_uncertain)} confirmed · ${formatCount(stats.credits_uncertain)} possibly charged`
+        : budget > 0
+          ? `of ${formatCount(budget)}`
+          : "no search budget",
     },
     {
       label: "Queries done",
@@ -95,17 +101,18 @@ export function LiveStats({ jobId, status, budget, initial }: Props) {
       note: `of ${formatCount(stats.queries_total)}`,
     },
     {
-      label: "Unique opportunities",
+      label: "URLs discovered",
       value: formatCount(stats.unique_opportunities),
+      note: "includes filtered results",
     },
     {
       label: "Duplicates skipped",
       value: formatCount(stats.duplicates_skipped),
     },
     {
-      label: "Could not check",
+      label: "Unchecked or skipped",
       value: formatCount(stats.unchecked_count),
-      note: "kept in the list, ranked lower",
+      note: "see Results for reasons",
     },
   ];
 

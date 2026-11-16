@@ -18,10 +18,12 @@ export function Topbar({
   collapsed,
   onToggleCollapsed,
   onOpenMobileNav,
+  canViewHealth,
 }: {
   collapsed: boolean;
   onToggleCollapsed: () => void;
   onOpenMobileNav: () => void;
+  canViewHealth: boolean;
 }) {
   const crumbs = breadcrumbsFor(usePathname());
 
@@ -89,7 +91,7 @@ export function Topbar({
         </ol>
       </nav>
 
-      <WorkerStatusBadge />
+      {canViewHealth ? <WorkerStatusBadge /> : null}
       <ThemeToggle />
     </header>
   );

@@ -1,0 +1,9 @@
+{
+  "version": 1,
+  "weights": {"relevance": 35, "language_region": 10, "activity_fit": 20, "overlap": 20, "multi_query": 15, "spam_penalty": 30},
+  "high_threshold": 70,
+  "medium_threshold": 40,
+  "overlap_half_saturation": 2,
+  "query_half_saturation": 2,
+  "spam_signal_cap": 3
+}

@@ -6,13 +6,17 @@ export default defineConfig({
   workers: 1,
   fullyParallel: false,
   timeout: 90_000,
+  // Own a production server: no HMR reloads or silently reused dev process.
   webServer: {
-    command: "pnpm dev",
-    url: "http://localhost:3000/api/health",
-    reuseExistingServer: true,
+    command: "pnpm build && pnpm start --port 3100",
+    timeout: 180_000,
+    url: "http://localhost:3100/api/health",
+    reuseExistingServer: false,
   },
   use: {
-    baseURL: "http://localhost:3000",
+    trace: "retain-on-failure",
+    screenshot: "only-on-failure",
+    baseURL: "http://localhost:3100",
     // Without these a stuck page waits for the whole test timeout and the
     // failure says nothing. With them it fails fast and names the step.
     actionTimeout: 15_000,

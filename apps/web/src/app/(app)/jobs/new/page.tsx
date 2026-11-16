@@ -4,7 +4,7 @@ import { ArrowLeft } from "lucide-react";
 import { PageSkeleton } from "@/components/app-skeletons";
 import { emptyJobFormValues } from "@/features/jobs/form-values";
 import { JobForm } from "@/features/jobs/job-form";
-import { listActivityOptions } from "@/features/jobs/queries";
+import { listActivityPlanProfiles } from "@/features/jobs/queries";
 import { requirePagePermission } from "@/lib/auth/guard";
 
 export default function NewJobPage() {
@@ -17,7 +17,7 @@ export default function NewJobPage() {
 
 async function NewJobContent() {
   await requirePagePermission("jobs.create");
-  const activities = await listActivityOptions();
+  const activities = await listActivityPlanProfiles();
 
   return (
     <div className="space-y-6">

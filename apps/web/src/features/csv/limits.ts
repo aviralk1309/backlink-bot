@@ -11,3 +11,6 @@ export const MAX_CSV_ROWS = 2_000_000;
 
 /** Exports often arrive as .tsv or .txt. The worker detects the real delimiter. */
 export const ACCEPTED_EXTENSIONS = [".csv", ".tsv", ".txt"] as const;
+
+/** Bytes read from Storage to build the mapping preview. */
+export const CSV_SAMPLE_BYTES = 64 * 1024;

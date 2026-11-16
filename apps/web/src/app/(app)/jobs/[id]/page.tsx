@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { forbidden, notFound } from "next/navigation";
 import { Suspense } from "react";
 import { AlertCircle, CheckCircle2, Pencil } from "lucide-react";
 import { PageSkeleton } from "@/components/app-skeletons";
@@ -9,7 +9,10 @@ import { Notice } from "@/components/ui/notice";
 import { CsvUploadsPanel } from "@/features/csv/csv-uploads-panel";
 import { ActivityLog } from "@/features/jobs/activity-log";
 import { DeleteJobButton, JobActions } from "@/features/jobs/job-actions";
+import { QueuePanel } from "@/features/jobs/queue-panel";
+import { RescorePanel } from "@/features/jobs/rescore-panel";
 import { JobSettings } from "@/features/jobs/job-settings";
+import { QueriesPanel } from "@/features/jobs/queries-panel";
 import { JobTabs } from "@/features/jobs/job-tabs";
 import { LocalTime } from "@/features/jobs/local-time";
 import { savedNotice } from "@/features/jobs/notice";
@@ -19,6 +22,7 @@ import {
   getJob,
   getJobEvents,
   getJobLive,
+  getJobQueueCounts,
   getJobStartProblems,
   listActivityOptions,
 } from "@/features/jobs/queries";
@@ -34,10 +38,12 @@ import { StatusBadge } from "@/features/jobs/status-badge";
 import type { JobRow } from "@/features/jobs/types";
 import { activityNames, parseTab } from "@/features/jobs/view";
 import { requirePagePermission } from "@/lib/auth/guard";
+import { ResultsPanel } from "@/features/results/results-panel";
+import { ReportPanel } from "@/features/reports/report-panel";
 
 type Props = {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ tab?: string; saved?: string }>;
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
 };
 
 export default function JobPage(props: Props) {
@@ -61,9 +67,13 @@ async function JobContent({ params, searchParams }: Props) {
   ]);
   if (!job) notFound();
 
-  const tab = parseTab(raw.tab);
-  const notice = savedNotice(raw.saved);
+  const tab = parseTab(typeof raw.tab === "string" ? raw.tab : undefined);
+  const notice = savedNotice(
+    typeof raw.saved === "string" ? raw.saved : undefined,
+  );
   const permissions = session.permissions;
+  if (tab === "results" && !permissions.includes("results.view")) forbidden();
+  if (tab === "report" && !permissions.includes("reports.view")) forbidden();
   const actions = availableActions(job.status, permissions);
   const canEdit = permissions.includes("jobs.edit") && isEditable(job.status);
   const canDelete = permissions.includes("jobs.delete");
@@ -102,15 +112,50 @@ async function JobContent({ params, searchParams }: Props) {
         />
       </div>
 
-      <JobTabs jobId={job.id} active={tab} />
+      <JobTabs
+        jobId={job.id}
+        active={tab}
+        canViewResults={permissions.includes("results.view")}
+        canViewReport={permissions.includes("reports.view")}
+      />
 
       {tab === "overview" ? (
         <Overview job={job} activities={activities} />
       ) : null}
+      {(tab === "overview" || tab === "results") &&
+      permissions.includes("results.view") ? (
+        <Queue
+          jobId={job.id}
+          queueLimit={job.review_queue_size}
+          canRelease={permissions.includes("results.release_batch")}
+        />
+      ) : null}
       {tab === "settings" ? (
         <JobSettings job={job} activities={activities} />
       ) : null}
-      {tab === "data" ? (
+      {tab === "queries" ? (
+        <QueriesPanel
+          job={job}
+          rawPage={raw.qpage}
+          canRetry={permissions.includes("jobs.control")}
+        />
+      ) : null}
+      {tab === "results" ? (
+        <ResultsPanel
+          jobId={job.id}
+          raw={raw}
+          activities={activities}
+          canViewFiltered={permissions.includes("results.view_filtered")}
+          canReview={permissions.includes("results.review")}
+          canReopen={permissions.includes("results.reopen")}
+          canExport={permissions.includes("results.export")}
+          canManageBlocklist={permissions.includes("blocklist.manage")}
+        />
+      ) : null}
+      {tab === "report" ? (
+        <ReportPanel raw={raw} fixedJob={job.id} activities={activities} />
+      ) : null}
+      {tab === "uploads" ? (
         <CsvUploadsPanel
           jobId={job.id}
           isDraft={job.status === "draft"}
@@ -118,6 +163,11 @@ async function JobContent({ params, searchParams }: Props) {
         />
       ) : null}
       {tab === "activity" ? <Activity jobId={job.id} /> : null}
+
+      {permissions.includes("jobs.rescore") &&
+      (job.status === "completed" || job.status === "stopped") ? (
+        <RescorePanel jobId={job.id} />
+      ) : null}
 
       {canDelete ? (
         <section
@@ -248,4 +298,24 @@ async function Overview({
 async function Activity({ jobId }: { jobId: string }) {
   const events = await getJobEvents(jobId);
   return <ActivityLog events={events} />;
+}
+
+async function Queue({
+  jobId,
+  queueLimit,
+  canRelease,
+}: {
+  jobId: string;
+  queueLimit: number;
+  canRelease: boolean;
+}) {
+  const counts = await getJobQueueCounts(jobId);
+  return (
+    <QueuePanel
+      jobId={jobId}
+      counts={counts}
+      queueLimit={queueLimit}
+      canRelease={canRelease}
+    />
+  );
 }

@@ -82,6 +82,62 @@ test("a draft can be saved half-empty and shows what is missing", async ({
   await expect(rowFor(page, name)).toContainText("Draft");
 });
 
+test("saved Draft fields survive a second edit", async ({ page }) => {
+  const name = `${JOB_PREFIX}edit-again ${Date.now()}`;
+  await login(page, E2E_ADMIN.email, E2E_PASSWORD);
+  const main = page.locator("main:visible");
+
+  await page.goto("/jobs/new");
+  await page.getByLabel("Job name").fill(name);
+  await page.getByRole("button", { name: "Save draft" }).click();
+  await expect(page.getByText("Job created.")).toBeVisible();
+  const id = jobIdFromUrl(page);
+
+  await page.goto(`/jobs/${id}/edit`);
+  await expect(
+    page.getByRole("heading", { name: `Edit job: ${name}` }),
+  ).toBeVisible();
+  await main.locator("#job_client_domain").fill("qa-edit.example.com");
+  await main.getByLabel("Business type").fill("QA software");
+  await main.locator("#job_country").selectOption({ label: "India" });
+  await main.locator("#job_language").selectOption({ label: "English" });
+  await main.getByRole("checkbox", { name: "Guest post" }).check();
+  await main.getByLabel("Seed keywords").fill("qa backlinks");
+  await main.getByLabel("Seed keywords").press("Enter");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Job saved.")).toBeVisible();
+
+  await page.getByRole("link", { name: "Edit settings" }).click();
+  await expect(
+    page.getByRole("heading", { name: `Edit job: ${name}` }),
+  ).toBeVisible();
+  await expect(main.locator("#job_client_domain")).toHaveValue(
+    "qa-edit.example.com",
+  );
+  await main.getByLabel("Competitor domains").fill("rival-a.com");
+  await main.getByLabel("Competitor domains").press("Enter");
+  await page.getByRole("button", { name: "Save changes" }).click();
+  await expect(page.getByText("Job saved.")).toBeVisible();
+
+  const { data, error } = await e2eAdminClient()
+    .from("jobs")
+    .select(
+      "client_domain, business_type, country, language, activity_keys, seed_keywords, competitor_domains",
+    )
+    .eq("id", id)
+    .single();
+  expect(error).toBeNull();
+  expect(data).toMatchObject({
+    client_domain: "qa-edit.example.com",
+    business_type: "QA software",
+    country: "IN",
+    language: "en",
+    activity_keys: ["guest_post"],
+    seed_keywords: ["qa backlinks"],
+    competitor_domains: ["rival-a.com"],
+  });
+});
+
 test("fill in a job, start it, stop it, then delete it", async ({ page }) => {
   test.setTimeout(120_000);
   const name = `${JOB_PREFIX}lifecycle ${Date.now()}`;
@@ -115,6 +171,9 @@ test("fill in a job, start it, stop it, then delete it", async ({ page }) => {
     await expect(page.getByText(/Job started\./)).toBeVisible();
     await expect(
       page.getByText("Queued", { exact: true }).first(),
+    ).toBeVisible();
+    await expect(
+      page.getByText(/Updated .*Refreshes every 5 seconds\./),
     ).toBeVisible();
     // A queued job cannot be deleted, and the page says why.
     await expect(
@@ -197,6 +256,56 @@ test("fill in a job, start it, stop it, then delete it", async ({ page }) => {
   });
 });
 
+test("deleting a job removes its CSV and error report from Storage", async ({
+  page,
+}) => {
+  const admin = e2eAdminClient();
+  const { data: job, error: insertError } = await admin
+    .from("jobs")
+    .insert({ name: `${JOB_PREFIX}storage-cleanup ${Date.now()}` })
+    .select("id")
+    .single();
+  expect(insertError).toBeNull();
+  const jobId = job!.id;
+  const uploadId = crypto.randomUUID();
+  const paths = [`${jobId}/${uploadId}.csv`, `${jobId}/${uploadId}_errors.csv`];
+
+  try {
+    for (const path of paths) {
+      const { error } = await admin.storage
+        .from("csv-uploads")
+        .upload(path, "url\nhttps://example.com\n", {
+          contentType: "text/csv",
+        });
+      expect(error).toBeNull();
+    }
+    const { error: uploadError } = await admin.from("csv_uploads").insert({
+      job_id: jobId,
+      kind: "client",
+      filename: "links.csv",
+      storage_path: paths[0],
+      error_report_path: paths[1],
+      size_bytes: 24,
+    });
+    expect(uploadError).toBeNull();
+
+    await login(page, E2E_ADMIN.email, E2E_PASSWORD);
+    await page.goto(`/jobs/${jobId}`);
+    await page.getByRole("button", { name: "Delete job" }).click();
+    await page.getByRole("button", { name: "Yes, delete job" }).click();
+    await expect(page).toHaveURL(/\/jobs\?saved=deleted/);
+
+    const { data: objects, error } = await admin.storage
+      .from("csv-uploads")
+      .list(jobId);
+    expect(error).toBeNull();
+    expect(objects).toEqual([]);
+  } finally {
+    await admin.storage.from("csv-uploads").remove(paths);
+    await admin.from("jobs").delete().eq("id", jobId);
+  }
+});
+
 test("the list filters by search text and status", async ({ page }) => {
   const stamp = Date.now();
   const first = `${JOB_PREFIX}filter-one ${stamp}`;
@@ -213,6 +322,42 @@ test("the list filters by search text and status", async ({ page }) => {
 
   await page.goto(`/jobs?status=running&q=${stamp}`);
   await expect(page.getByText("No jobs match these filters.")).toBeVisible();
+});
+
+test("Results filters follow URL changes without uncontrolled warnings", async ({
+  page,
+}) => {
+  const admin = e2eAdminClient();
+  const { data: job, error } = await admin
+    .from("jobs")
+    .insert({ name: `${JOB_PREFIX}results filters ${Date.now()}` })
+    .select("id")
+    .single();
+  expect(error).toBeNull();
+  const warnings: string[] = [];
+  page.on("console", (message) => {
+    if (/FieldControl.*default/i.test(message.text())) {
+      warnings.push(message.text());
+    }
+  });
+
+  try {
+    await login(page, E2E_ADMIN.email, E2E_PASSWORD);
+    await page.goto(`/jobs/${job!.id}?tab=results`);
+    const search = page.getByPlaceholder("Search results");
+    await expect(search).toBeVisible();
+    await search.fill("example.com");
+    await page.getByRole("button", { name: "Apply filters" }).click();
+    await expect(page).toHaveURL(/q=example.com/);
+    await expect(search).toHaveValue("example.com");
+    await page.getByRole("link", { name: "Clear filters" }).click();
+    await expect(search).toHaveValue("");
+    await page.getByRole("link", { name: "Group by domain" }).click();
+    await expect(page.getByRole("link", { name: "Show rows" })).toBeVisible();
+    expect(warnings).toEqual([]);
+  } finally {
+    await admin.from("jobs").delete().eq("id", job!.id);
+  }
 });
 
 test("a Viewer can read jobs but not create, change or control them", async ({

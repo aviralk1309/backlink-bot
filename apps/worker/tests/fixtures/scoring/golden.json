@@ -1,0 +1,9 @@
+[
+  {"name":"balanced", "relevance":0.8,"activity":0.5,"overlap":2,"queries":3,"spam":[],"score":"65.50","tier":"medium","points":[28,10,10,10,7.5,0],"reasons":["score_relevance","score_language_region","score_activity_fit"]},
+  {"name":"strong", "relevance":1,"activity":1,"overlap":4,"queries":5,"spam":[],"score":"88.33","tier":"high","points":[35,10,20,13.33,10,0],"reasons":["score_relevance","score_activity_fit","score_overlap"]},
+  {"name":"spam_penalty", "relevance":0.8,"activity":0.5,"overlap":2,"queries":3,"spam":["thin","links","keywords"],"score":"35.50","tier":"low","points":[28,10,10,10,7.5,-30],"reasons":["score_spam_penalty","score_relevance","score_language_region"]},
+  {"name":"single_query", "relevance":0,"activity":0,"overlap":0,"queries":1,"spam":[],"score":"10.00","tier":"low","points":[0,10,0,0,0,0],"reasons":["score_language_region"]},
+  {"name":"clamped_floor", "relevance":-2,"activity":0,"overlap":0,"queries":0,"spam":["thin","links","keywords","other"],"score":"0.00","tier":"low","points":[0,10,0,0,0,-30],"reasons":["score_spam_penalty","score_language_region"]},
+  {"name":"unknown_language", "relevance":1,"activity":1,"overlap":4,"queries":5,"spam":[],"unknown":"language","score":"78.33","tier":"unchecked","points":[35,0,20,13.33,10,0],"reasons":["score_essential_unknown","score_relevance","score_activity_fit"]},
+  {"name":"domain_cap", "relevance":1,"activity":1,"overlap":4,"queries":5,"spam":[],"cap":true,"score":"88.33","tier":"unchecked","points":[35,10,20,13.33,10,0],"reasons":["score_domain_cap","score_relevance","score_activity_fit"]}
+]

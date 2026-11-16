@@ -22,11 +22,12 @@
 --      total_rows = valid_rows + invalid_rows + empty_rows
 --      duplicate_rows is a SUBSET of valid_rows (repeat URL inside the file).
 --  * mapping jsonb contract (the mapping screen and the worker rely on it):
---      { "url_column": "<header text>",
---        "columns": [ { "source": "<header>", "label": "<name>",
+--      { "url_index": 1, "url_column": "<display label>",
+--        "columns": [ { "index": 0, "source": "<header>", "label": "<name>",
 --                       "type": "text" | "number" | "date" | "ignore" } ] }
---    Header-based, not index-based, so a template matches any export with the
---    same headers. The database checks only that it is an object.
+--    url_index is authoritative (columns can share header text). Display label
+--    comes from CsvHeader.labels. See docs/data-dictionary.md.
+--    The database checks only that it is an object.
 --  * RLS: reading upload summaries needs jobs.view. Reading staged rows needs
 --    csv.upload (raw URLs and extra columns are competitor data).
 

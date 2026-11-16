@@ -27,6 +27,11 @@ class ClaimedRow:
 async def claim_checks(
     pool: AsyncConnectionPool, worker_id: str, batch: int, lease_seconds: int
 ) -> list[ClaimedRow]:
+    """Claim only admitted URLs; SQL marks domain-cap overflow skipped atomically.
+
+    An empty result can still make progress by draining capped rows. Callers
+    should continue polling while the job has pending work.
+    """
     async with pool.connection() as conn:
         cur = await conn.execute(
             "select id, job_id, original_url, normalized_url, host, domain,"

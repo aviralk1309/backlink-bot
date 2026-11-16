@@ -10,7 +10,7 @@ select plan(43);
 --
 -- Every opportunity has original_url = its label, so tests read labels.
 -- created_at is explicit: now() is the same for the whole transaction.
--- Claim order: priority, then created_at.
+-- G14 order within this domain: overlap desc, query count desc, then created_at.
 --   job 01: g1 (gap, seq 3), g2 (gap, seq 4), s1 (seed), q1 (search)
 --   job 02: sat1 (search)
 -- Calls under test run as the `worker` role through pg_temp.as_role().
@@ -40,11 +40,11 @@ update public.jobs j
 
 insert into public.opportunities (
   job_id, original_url, normalized_url, host, domain, first_source_type,
-  priority, config_version, created_at, check_status, check_reason
+  priority, overlap_count, config_version, created_at, check_status, check_reason
 )
 select
   v.job::uuid, v.label, 'https://example.com/' || v.label, 'example.com', 'example.com',
-  'google', v.prio, 1,
+  'google', v.prio, 10 - v.prio, 1,
   timestamptz '2026-01-01 00:00:00+00' + make_interval(secs => v.seq),
   v.status::public.opportunity_check_status,
   case when v.status in ('skipped', 'failed') then 'fixture' end
@@ -137,9 +137,9 @@ select is(pg_temp.claim('w1', 1, 120), 'g1',
 select is(pg_temp.row('g1'), 'running|w1|1|-|lease',
   'claimed row is running, owned, attempt 1, leased');
 select ok(
-  (select lease_expires_at = now() + interval '120 seconds'
+  (select lease_expires_at - now() between interval '120 seconds' and interval '125 seconds'
    from public.opportunities where original_url = 'g1'),
-  'lease is now + lease_seconds');
+  'lease starts at actual claim time');
 
 select is(pg_temp.claim('w2', 2, 60), 'g2,s1',
   'next batch: rest of gap, then seed, before search rows');
@@ -207,8 +207,8 @@ select is(
   (select lease_expires_at - now() from public.opportunities where original_url = 'g2'),
   interval '300 seconds', 'extended lease is now + new lease_seconds');
 select is(
-  (select lease_expires_at - now() from public.opportunities where original_url = 'g1'),
-  interval '120 seconds', 'a row held by another worker keeps its lease');
+  (select lease_expires_at - now() between interval '120 seconds' and interval '125 seconds' from public.opportunities where original_url = 'g1'),
+  true, 'a row held by another worker keeps its lease');
 
 -- ---------------------------------------------------------------------
 -- E. Reaper

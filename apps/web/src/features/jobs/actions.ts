@@ -3,9 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { firstIssue, type FormState } from "@/lib/auth/schemas";
 import { describeDbError } from "@/lib/db-errors";
+import { CSV_BUCKET } from "../csv/limits";
 import { TRANSITION_NOTICE } from "./notice";
 import {
   describeStartProblems,
@@ -19,6 +21,7 @@ import {
 import {
   deleteJobSchema,
   jobFormInput,
+  jobIdSchema,
   saveJobSchema,
   transitionJobSchema,
 } from "./schemas";
@@ -235,6 +238,131 @@ export async function deleteJobAction(
   }
   if (!deleted?.length) return FORBIDDEN;
 
+  // The delete trigger persists a retry target before cascade removes upload rows.
+  // Sweep the whole folder, including orphan uploads and validation reports.
+  try {
+    const admin = createAdminClient();
+    const bucket = admin.storage.from(CSV_BUCKET);
+    for (;;) {
+      const { data: files, error: listError } = await bucket.list(job_id, {
+        limit: 1000,
+      });
+      if (listError) throw listError;
+      if (!files?.length) break;
+      const { error: removeError } = await bucket.remove(
+        files.map((file) => `${job_id}/${file.name}`),
+      );
+      if (removeError) throw removeError;
+    }
+    const { error: queueError } = await admin
+      .from("job_storage_cleanup")
+      .delete()
+      .eq("job_id", job_id);
+    if (queueError) throw queueError;
+  } catch (cleanupError) {
+    console.error("deleteJobAction: Storage cleanup queued", cleanupError);
+    refresh();
+    redirect("/jobs?saved=deleted_cleanup_pending");
+  }
+
   refresh();
   redirect("/jobs?saved=deleted");
+}
+
+/** Confirmation and permission are enforced again by the database RPC. */
+export async function rescoreJobAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await actor("jobs.rescore"))) return FORBIDDEN;
+  const parsed = jobIdSchema.safeParse(formData.get("job_id"));
+  if (!parsed.success) return { error: "Invalid job." };
+  if (formData.get("confirmed") !== "yes") {
+    return {
+      error: "Confirm that you want to apply the current scoring settings.",
+    };
+  }
+  const supabase = await createClient();
+  const { error } = await supabase.rpc("request_job_rescore", {
+    p_job_id: parsed.data,
+    p_confirmed: true,
+  });
+  if (error) {
+    if (error.message.includes("rescore_requires_idle_finished_job")) {
+      return {
+        error:
+          "Rescoring requires a completed or stopped job with no checks still running. Wait for workers to finish, then retry.",
+      };
+    }
+    console.error("rescoreJobAction", error.code);
+    return { error: "Could not request rescoring. Reload and try again." };
+  }
+  refresh(parsed.data);
+  return {
+    message:
+      "Rescore queued using the current settings. Check Activity for completion.",
+  };
+}
+
+/** Promote the highest-ranked backlog rows that fit the job's ready window. */
+export async function releaseBacklogAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await actor("jobs.view"))) return FORBIDDEN;
+  if (!(await actor("results.release_batch"))) return FORBIDDEN;
+  const parsed = jobIdSchema.safeParse(formData.get("job_id"));
+  if (!parsed.success) return { error: "Invalid job." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("release_backlog", {
+    p_job_id: parsed.data,
+  });
+  if (error) {
+    console.error("releaseBacklogAction", error.code);
+    return {
+      error: "Could not release backlog results. Reload and try again.",
+    };
+  }
+  const count = typeof data === "number" ? data : 0;
+  refresh(parsed.data);
+  return {
+    message:
+      count > 0
+        ? `Released ${count} ${count === 1 ? "result" : "results"} to Ready.`
+        : "No backlog results fit in the current Ready queue.",
+  };
+}
+
+/** Requeue one failed paid query. The RPC locks the job and enforces the budget. */
+export async function retryJobQueryAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!(await actor("jobs.control"))) return FORBIDDEN;
+  const job = jobIdSchema.safeParse(formData.get("job_id"));
+  const query = jobIdSchema.safeParse(formData.get("query_id"));
+  if (!job.success || !query.success) return { error: "Invalid query." };
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("retry_job_query", {
+    p_job_id: job.data,
+    p_query_id: query.data,
+  });
+  if (error) {
+    const reason: Record<string, string> = {
+      query_not_failed: "This query has changed. Reload the page.",
+      job_not_retryable: "This job cannot retry queries in its current state.",
+      query_budget_reached: "No search credits remain in this job's budget.",
+      job_not_found: "This job no longer exists.",
+    };
+    if (reason[error.message]) return { error: reason[error.message] };
+    console.error("retryJobQueryAction", error.code);
+    return { error: "Could not retry this query. Reload and try again." };
+  }
+  refresh(job.data);
+  return {
+    message:
+      data === "reopened"
+        ? "Query queued. Job reopened."
+        : "Query queued for retry.",
+  };
 }

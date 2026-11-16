@@ -2,14 +2,28 @@ import Link from "next/link";
 import { cn } from "@/lib/utils";
 import { JOB_TABS, JOB_TAB_LABELS, type JobTab } from "./view";
 
-/** Overview, Settings and Activity. Plain links, so each tab is a URL. */
-export function JobTabs({ jobId, active }: { jobId: string; active: JobTab }) {
+/** Plain links keep each job section addressable by URL. */
+export function JobTabs({
+  jobId,
+  active,
+  canViewResults,
+  canViewReport,
+}: {
+  jobId: string;
+  active: JobTab;
+  canViewResults: boolean;
+  canViewReport: boolean;
+}) {
   return (
     <nav
       aria-label="Job sections"
       className="-mx-1 flex gap-1 overflow-x-auto px-1 py-1"
     >
-      {JOB_TABS.map((tab) => (
+      {JOB_TABS.filter(
+        (tab) =>
+          (tab !== "results" || canViewResults) &&
+          (tab !== "report" || canViewReport),
+      ).map((tab) => (
         <Link
           key={tab}
           href={

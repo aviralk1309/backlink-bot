@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   addBlocklistSchema,
+  blockFromReviewSchema,
   removeBlocklistSchema,
+  undoReviewBlockSchema,
   updateReasonSchema,
 } from "./schemas";
 
@@ -50,5 +52,64 @@ describe("row schemas", () => {
   it("allow clearing the reason", () => {
     expect(updateReasonSchema.parse({ id: ID, reason: "" }).reason).toBeNull();
     expect(updateReasonSchema.parse({ id: ID }).reason).toBeNull();
+  });
+});
+
+describe("review blocklist input", () => {
+  it("accepts one rejected result or one domain with a required reason", () => {
+    expect(
+      blockFromReviewSchema.parse({
+        jobId: ID,
+        resultId: ID,
+        reason: "  Spam  ",
+      }).reason,
+    ).toBe("Spam");
+    expect(
+      blockFromReviewSchema.safeParse({
+        jobId: ID,
+        domain: "spam.example",
+        reason: "Rejected in job",
+      }).success,
+    ).toBe(true);
+  });
+
+  it("rejects ambiguous sources, blank reasons and malformed domains", () => {
+    expect(
+      blockFromReviewSchema.safeParse({ jobId: ID, reason: "Spam" }).success,
+    ).toBe(false);
+    expect(
+      blockFromReviewSchema.safeParse({
+        jobId: ID,
+        resultId: ID,
+        domain: "spam.example",
+        reason: "Spam",
+      }).success,
+    ).toBe(false);
+    expect(
+      blockFromReviewSchema.safeParse({
+        jobId: ID,
+        domain: "https://spam.example/path",
+        reason: " ",
+      }).success,
+    ).toBe(false);
+  });
+
+  it("binds undo to the recorded entry and reason", () => {
+    expect(
+      undoReviewBlockSchema.safeParse({
+        id: ID,
+        jobId: ID,
+        domain: "spam.example",
+        reason: "Spam",
+      }).success,
+    ).toBe(true);
+    expect(
+      undoReviewBlockSchema.safeParse({
+        id: ID,
+        jobId: ID,
+        domain: "spam.example",
+        reason: "",
+      }).success,
+    ).toBe(false);
   });
 });

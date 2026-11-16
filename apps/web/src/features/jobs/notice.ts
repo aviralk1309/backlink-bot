@@ -4,6 +4,7 @@ const SAVED: Record<string, string> = {
   created: "Job created.",
   updated: "Job saved.",
   deleted: "Job deleted.",
+  deleted_cleanup_pending: "Job deleted. Its files are queued for cleanup.",
 };
 
 /** Turns the `?saved=` flag set by the job actions into a status line. */

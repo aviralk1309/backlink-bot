@@ -1,0 +1,16 @@
+{
+  "credits": 1,
+  "searchParameters": {"q": "write for us", "gl": "us"},
+  "searchInformation": {"totalResults": 1234, "timeTaken": 0.42},
+  "organic": [
+    {
+      "title": "Contribute",
+      "link": "https://example.org/write-for-us",
+      "snippet": "Contributor guidelines",
+      "position": 1,
+      "sitelinks": [{"link": "https://example.org/private"}]
+    },
+    {"title": "Resources", "link": "https://example.net/resources", "position": 2}
+  ],
+  "peopleAlsoAsk": [{"question": "Unrelated"}]
+}

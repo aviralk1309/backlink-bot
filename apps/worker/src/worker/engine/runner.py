@@ -12,8 +12,11 @@ import asyncio
 import uuid
 from dataclasses import dataclass
 
+import psycopg
 import structlog
 from psycopg_pool import AsyncConnectionPool
+
+from worker.engine import gap, queries
 
 
 @dataclass(frozen=True, slots=True)
@@ -24,11 +27,64 @@ class TickResult:
 
 
 async def pick_up_next_job(pool: AsyncConnectionPool) -> tuple[uuid.UUID, str] | None:
-    """One queued job per call. Outcome is 'running' or 'failed'. None: queue empty."""
-    async with pool.connection() as conn:
+    """Publish pickup and all imports together; a disconnect rolls back both.
+
+    The SQL pickup holds the job lock until this transaction commits. Other
+    runners see Queued and SKIP LOCKED; completion/check claims see no Running
+    job until gap and seed rows, sources and counters are durable.
+    """
+    import_result: gap.GapAndSeedImportResult | None = None
+    query_plan: queries.QueryPlan | None = None
+    log = structlog.get_logger()
+    async with pool.connection() as conn, conn.transaction():
         cur = await conn.execute("select job_id, outcome from public.worker_pick_up_next_job()")
         row = await cur.fetchone()
-    return (row[0], row[1]) if row else None
+        if row is None:
+            return None
+        job_id, outcome = row
+        if outcome == "running":
+            try:
+                # Savepoint: an unrecoverable import error removes *all* partial
+                # imports but keeps the pickup lock, allowing an atomic failure
+                # transition without another runner taking over this job.
+                async with conn.transaction():
+                    import_result = await gap.import_job_gap_and_seeds(conn, job_id)
+                    query_plan = await queries.create_job_queries(conn, job_id)
+            except (psycopg.OperationalError, psycopg.InterfaceError):
+                # Connection loss, deadlocks, serialization conflicts and query
+                # cancellation roll back pickup too. Retry on the next poll.
+                raise
+            except Exception as exc:
+                log.exception("job_import_failed", job_id=str(job_id))
+                reason = (
+                    f"query_plan_failed:{exc}"
+                    if isinstance(exc, queries.QueryPlanError)
+                    else f"import_failed:{type(exc).__name__}"
+                )
+                await conn.execute(
+                    "select public.worker_transition_job(%s, 'fail', %s)",
+                    (job_id, reason),
+                )
+                outcome = "failed"
+    # Report success only after the commit (which may itself fail).
+    if outcome == "running" and import_result is not None:
+        log.info(
+            "job_import_completed",
+            job_id=str(job_id),
+            gap_created=import_result.gap_opportunities_created,
+            gap_dupes=import_result.gap_duplicates_skipped,
+            seed_created=import_result.seed_opportunities_created,
+            seed_dupes=import_result.seed_duplicates_skipped,
+            queries_created=len(query_plan.rows) if query_plan else 0,
+        )
+        if query_plan and query_plan.capped:
+            log.warning(
+                "query_plan_capped",
+                job_id=str(job_id),
+                generated=len(query_plan.rows),
+                potential=query_plan.potential_calls,
+            )
+    return job_id, outcome
 
 
 async def complete_drained_jobs(pool: AsyncConnectionPool) -> list[uuid.UUID]:
@@ -76,7 +132,6 @@ class JobRunner:
             else:
                 picked += 1
                 self._log.info("job_picked_up", job_id=str(job_id))
-
         completed = await complete_drained_jobs(self._pool)
         for job_id in completed:
             self._log.info("job_completed", job_id=str(job_id), reason="drained")

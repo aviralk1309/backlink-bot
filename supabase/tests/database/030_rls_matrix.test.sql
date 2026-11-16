@@ -98,10 +98,10 @@ select ok(public.current_role_id() is null,
 -- ---------------------------------------------------------------------
 select set_config('request.jwt.claims',
   json_build_object('sub', '00000000-0000-0000-0000-0000000000a3', 'role', 'authenticated')::text, true);
-select is((select count(*)::int from public.permissions), 20,
+select is((select count(*)::int from public.permissions), 21,
   'viewer reads the whole catalog');
-select is((select count(*)::int from public.role_permissions), 33,
-  'viewer reads every role grant (20 + 10 + 3)');
+select is((select count(*)::int from public.role_permissions), 34,
+  'viewer reads every role grant (21 + 10 + 3)');
 select throws_ok(
   $$insert into public.role_permissions (role_id, permission_key)
       values ('a0000000-0000-0000-0000-000000000003', 'jobs.create')$$,

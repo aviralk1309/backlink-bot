@@ -15,6 +15,7 @@ async function ShellWithSession({ children }: { children: ReactNode }) {
       items={visibleNavItems(session.permissions)}
       userName={session.fullName || session.email}
       roleName={session.roleName}
+      canViewHealth={session.permissions.includes("system.view_health")}
     >
       {children}
     </AppShell>

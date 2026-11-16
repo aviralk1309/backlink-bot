@@ -17,11 +17,13 @@ export function AppShell({
   items,
   userName,
   roleName,
+  canViewHealth,
   children,
 }: {
   items: readonly NavItem[];
   userName: string;
   roleName: string;
+  canViewHealth: boolean;
   children: ReactNode;
 }) {
   const [collapsed, setCollapsed] = useSidebarCollapsed();
@@ -73,6 +75,7 @@ export function AppShell({
           collapsed={collapsed}
           onToggleCollapsed={() => setCollapsed(!collapsed)}
           onOpenMobileNav={() => setMobileOpen(true)}
+          canViewHealth={canViewHealth}
         />
         <main
           id="main-content"

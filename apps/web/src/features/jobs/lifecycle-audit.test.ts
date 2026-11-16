@@ -263,7 +263,10 @@ describe("Phase 5: Start Pre-condition Validations", () => {
       "One of the selected activities is disabled.",
     );
     expect(startProblemText("no_source")).toBe(
-      "Add a source: a Serper credit budget above 0, seed list URLs or competitor domains.",
+      "Add a source: a Serper credit budget above 0, seed list URLs, competitor domains or a confirmed competitor CSV with usable rows.",
+    );
+    expect(startProblemText("unconfirmed_csv")).toBe(
+      "Finish mapping and confirming each uploaded CSV, or discard files you do not want included.",
     );
   });
 
@@ -298,7 +301,7 @@ describe("Phase 5: Start Pre-condition Validations", () => {
   it("describes start problems into a comprehensive human sentence", () => {
     const desc = describeStartProblems(["missing_client_domain", "no_source"]);
     expect(desc).toBe(
-      "This job cannot start yet. Add the client's domain. Add a source: a Serper credit budget above 0, seed list URLs or competitor domains.",
+      "This job cannot start yet. Add the client's domain. Add a source: a Serper credit budget above 0, seed list URLs, competitor domains or a confirmed competitor CSV with usable rows.",
     );
   });
 

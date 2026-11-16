@@ -5,6 +5,7 @@ import { PAGE_SIZE, sanitizeSearch, type JobListParams } from "./rules";
 import {
   EMPTY_JOB_STATS,
   type ActivityOption,
+  type ActivityPlanProfile,
   type JobEvent,
   type JobListItem,
   type JobLive,
@@ -156,8 +157,22 @@ export const listActivityOptions = cache(
     return (data ?? []) as ActivityOption[];
   },
 );
+
+/** Current search templates for a draft's before-start query preview. */
+export const listActivityPlanProfiles = cache(
+  async (): Promise<ActivityPlanProfile[]> => {
+    const supabase = await createClient();
+    const { data, error } = await supabase
+      .from("activity_profiles")
+      .select("key,name,enabled,footprint_templates")
+      .order("name");
+    if (error)
+      throw new Error(`listActivityPlanProfiles failed: ${error.message}`);
+    return (data ?? []) as unknown as ActivityPlanProfile[];
+  },
+);
 const STATS_COLUMNS =
-  "credits_used, queries_total, queries_done, unique_opportunities, duplicates_skipped, unchecked_count";
+  "credits_used, credits_uncertain, queries_total, queries_done, unique_opportunities, duplicates_skipped, unchecked_count";
 
 /**
  * Status and live counters for the Overview tab. Runs as the signed-in user,
@@ -184,5 +199,111 @@ export async function getJobLive(jobId: string): Promise<JobLive | null> {
   return {
     status: (jobRes.data as unknown as { status: JobStatus }).status,
     stats: stats ?? EMPTY_JOB_STATS,
+  };
+}
+
+export type SearchQueryRow = {
+  id: string;
+  activity_key: string;
+  template_id: string;
+  template_version: number;
+  query_text: string;
+  status: "pending" | "running" | "done" | "failed";
+  attempts: number;
+  credits_used: number | null;
+  credit_spend_uncertain: boolean;
+  result_count: number | null;
+  accepted_result_count: number | null;
+  rejected_result_count: number | null;
+  duplicate_result_count: number | null;
+  new_unique_domains: number | null;
+  error: string | null;
+  page: number;
+  location: string | null;
+};
+
+export type QueryYield = {
+  activity_key: string;
+  template_id: string;
+  template_version: number;
+  queries_total: number;
+  queries_done: number;
+  queries_failed: number;
+  credits_used: number;
+  result_count: number;
+  new_unique_domains: number;
+};
+
+export const QUERY_PAGE_SIZE = 25;
+
+export async function listJobQueries(
+  jobId: string,
+  page: number,
+): Promise<SearchQueryRow[]> {
+  const supabase = await createClient();
+  const from = (page - 1) * QUERY_PAGE_SIZE;
+  const { data, error } = await supabase
+    .from("job_queries")
+    .select(
+      "id,activity_key,template_id,template_version,query_text,status,attempts,credits_used,credit_spend_uncertain,result_count,accepted_result_count,rejected_result_count,duplicate_result_count,new_unique_domains,error,page,location",
+    )
+    .eq("job_id", jobId)
+    .order("priority")
+    .order("created_at")
+    .order("id")
+    .range(from, from + QUERY_PAGE_SIZE - 1);
+  if (error?.code === "PGRST103") return [];
+  if (error) throw new Error(`listJobQueries failed: ${error.message}`);
+  return (data ?? []) as SearchQueryRow[];
+}
+
+export async function getJobQueryYield(jobId: string): Promise<QueryYield[]> {
+  const supabase = await createClient();
+  const { data, error } = await supabase.rpc("job_query_yield", {
+    p_job_id: jobId,
+  });
+  if (error) throw new Error(`getJobQueryYield failed: ${error.message}`);
+  return (data ?? []) as QueryYield[];
+}
+
+export type JobQueueCounts = {
+  ready: number;
+  pending: number;
+  backlog: number;
+};
+
+/** Exact queue counts, scoped by the opportunities results-view policy. */
+export async function getJobQueueCounts(
+  jobId: string,
+): Promise<JobQueueCounts> {
+  const supabase = await createClient();
+  const [ready, pending, backlog] = await Promise.all([
+    supabase
+      .from("opportunities")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId)
+      .eq("queue_group", "ready"),
+    supabase
+      .from("opportunities")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId)
+      .eq("queue_group", "ready")
+      .in("review_status", ["new", "in_review"]),
+    supabase
+      .from("opportunities")
+      .select("id", { count: "exact", head: true })
+      .eq("job_id", jobId)
+      .eq("queue_group", "backlog"),
+  ]);
+  if (ready.error)
+    throw new Error(`getJobQueueCounts failed: ${ready.error.message}`);
+  if (pending.error)
+    throw new Error(`getJobQueueCounts failed: ${pending.error.message}`);
+  if (backlog.error)
+    throw new Error(`getJobQueueCounts failed: ${backlog.error.message}`);
+  return {
+    ready: ready.count ?? 0,
+    pending: pending.count ?? 0,
+    backlog: backlog.count ?? 0,
   };
 }
