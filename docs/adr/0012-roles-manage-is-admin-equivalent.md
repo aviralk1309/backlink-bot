@@ -1,8 +1,8 @@
 # ADR 0012: roles.manage is admin-equivalent
-Status: Accepted
+Status: Accepted; amended 2026-11-18 by D3 in `docs/audit/decisions.md`
 Context: M1-S7 adds the role builder. Anyone holding `roles.manage` can edit
 any role's permissions, including the role they hold, so they can grant
-themselves every permission in the catalog. The database already protects
+   themselves every permission in the catalog. The database already protects
 the Admin role (lockout triggers from M1-S4: protected role cannot be
 deleted, must keep `roles.manage` and `users.manage`, last active Admin
 cannot be removed). It does not protect custom roles or the starter
@@ -10,7 +10,8 @@ Manager and Viewer roles, which stay editable and deletable when unused.
 Decision:
 1. Treat `roles.manage` as admin-equivalent. Grant it only to people who
    would be trusted as Admin. There is no tiered "can only grant what you
-   hold" model.
+   hold" model for editing role permissions. Assigning a role to a user is
+   constrained separately below.
 2. Self-lockout is blocked in the application, not the database. The form
    locks `roles.manage` on your own role, and `planRoleSave` rejects a save
    that removes it. The Admin role keeps its DB-enforced protection.
@@ -38,11 +39,22 @@ Alternatives:
   A failure in between leaves a role with the wrong permissions.
 - Optimistic locking on `roles.updated_at`: deferred. It is additive and
   can be added without a schema change.
+Amendment (D3, 2026-11-18): `users.manage` is not Admin-equivalent. Direct
+profile role changes now deny self-assignment and deny a target role whose
+permissions exceed the caller's, enforced by a Postgres trigger. Admin can
+be assigned only by an Admin or another `roles.manage` holder. The invite
+action calls the same `can_assign_role` database rule before creating the
+Auth link, then writes the profile through the caller's session so the
+database guard also applies at the write. A private `profile_role_changes`
+table logs successful assignments.
+The role builder's self-lockout behavior in Decision 2 remains separate.
+
 Consequences: Handing out `roles.manage` is a high-trust decision and must
 be reviewed like granting Admin. A custom role can be deleted or emptied by
 any `roles.manage` holder, which is intended. Two admins editing the same
 role at once can overwrite each other silently. The self-lockout check can
-be bypassed by calling the database directly with the user's own session.
+be bypassed by calling the database directly with the user's own session;
+profile self role changes cannot.
 Reversibility: Easy. Everything is migrations plus app rules, and
 optimistic locking or tiered grants can be added later.
 Review trigger: A non-Admin role needs `roles.manage`. More than one person

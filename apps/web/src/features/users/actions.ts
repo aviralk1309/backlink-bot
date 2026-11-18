@@ -152,7 +152,15 @@ export async function inviteUserAction(
     .maybeSingle();
   if (!role) return { error: "Role not found." };
 
-  // Service key: only reached after the users.manage check above.
+  const { data: assignable, error: assignmentError } = await supabase.rpc(
+    "can_assign_role",
+    { p_role_id: role_id },
+  );
+  if (assignmentError || !assignable) {
+    return { error: "You cannot assign that role." };
+  }
+
+  // Service key creates only the Auth link after both permission checks.
   const admin = createAdminClient();
   const { data, error } = await admin.auth.admin.generateLink({
     type: "invite",
@@ -173,8 +181,9 @@ export async function inviteUserAction(
     return { error: "Could not create the invite. Try again." };
   }
 
-  // The new-user trigger made a pending profile; activate it with the role.
-  const { error: updateError } = await admin
+  // The new-user trigger made a pending profile. Write as the caller so the
+  // database role-assignment guard applies even if grants changed since the check.
+  const { data: updated, error: updateError } = await supabase
     .from("profiles")
     .update({
       status: "active",
@@ -182,13 +191,14 @@ export async function inviteUserAction(
       approved_by: session.userId,
       approved_at: new Date().toISOString(),
     })
-    .eq("id", data.user.id);
-  if (updateError) {
+    .eq("id", data.user.id)
+    .select("id");
+  if (updateError || !updated?.length) {
     // Do not leave a half-made account behind.
     await admin.auth.admin.deleteUser(data.user.id);
     console.error(
       "inviteUserAction: profile update failed",
-      updateError.message,
+      updateError?.message,
     );
     return { error: "Could not create the invite. Try again." };
   }

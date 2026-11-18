@@ -8,6 +8,8 @@ describe("describeDbError", () => {
     ["lockout_role_in_use", "still has users"],
     ["lockout_admin_permission", "must keep user and role management"],
     ["role_not_found", "no longer exists"],
+    ["role_assignment_forbidden", "permissions you do not hold"],
+    ["self_role_change_forbidden", "cannot change your own role"],
     ["invalid_permission", "not recognized"],
     ["job_not_found", "That job no longer exists"],
     ["invalid_transition: start from running", "current status"],

@@ -44,6 +44,10 @@ dedicated, and the database is the gate, not the status code. See ADR 0013.
 ## Roles and `roles.manage`
 
 `roles.manage` is admin-equivalent. See ADR 0012.
+`users.manage` is not: a database guard rejects self role changes and role
+assignments above the caller's permissions. The invite action checks the
+same database rule before creating the Auth link and writes the profile as
+the caller.
 
 ## Jobs, activities and the blocklist (M2)
 
