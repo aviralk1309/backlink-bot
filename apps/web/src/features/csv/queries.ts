@@ -37,6 +37,16 @@ export async function listCsvUploads(jobId: string): Promise<CsvUploadItem[]> {
   return (data ?? []) as unknown as CsvUploadItem[];
 }
 
+export async function countPendingCsvCleanup(jobId: string): Promise<number> {
+  const supabase = await createClient();
+  const { count, error } = await supabase
+    .from("csv_storage_cleanup")
+    .select("*", { count: "exact", head: true })
+    .eq("job_id", jobId);
+  if (error) throw new Error(`countPendingCsvCleanup failed: ${error.message}`);
+  return count ?? 0;
+}
+
 /** One upload with its saved mapping. Null when RLS hides it or it is not in this job. */
 export async function getCsvUploadForMapping(
   jobId: string,

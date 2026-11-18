@@ -838,6 +838,14 @@ No client update or delete. The browser uploads directly. A `csv_uploads` row is
 created only after the file exists, so a failed register can leave an orphan
 object (sweep is a later step). Hosted free plan caps uploads at 50 MB.
 
+### `public.csv_storage_cleanup`
+
+Deleting a `csv_uploads` row queues its `storage_path` and `error_report_path`
+here. `path` is the primary key; `job_id` and `upload_id` identify the deleted
+upload, and `created_at` gates the worker's 30-second retry. These rows survive
+job deletion and disappear only after Storage confirms removal. Users with
+`csv.upload` can read pending rows; the worker and service role can delete them.
+
 ### Functions
 | Function | Who | What |
 |---|---|---|

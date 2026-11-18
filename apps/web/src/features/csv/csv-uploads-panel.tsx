@@ -1,5 +1,6 @@
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/ui/notice";
 import {
   Table,
   TableBody,
@@ -14,6 +15,7 @@ import { DeleteUploadButton } from "./delete-upload-button";
 import { GapPreviewPanel } from "./gap-preview-panel";
 import { MapColumnsButton } from "./map-columns-button";
 import {
+  countPendingCsvCleanup,
   getCsvUploadSummary,
   getJobGapDomains,
   getJobGapPreview,
@@ -38,6 +40,7 @@ export async function CsvUploadsPanel({
   canUpload: boolean;
 }) {
   const uploads = await listCsvUploads(jobId);
+  const pendingCleanup = canUpload ? await countPendingCsvCleanup(jobId) : 0;
   const canChange = canUpload && isDraft;
 
   // Fetch summaries for ready / confirmed uploads (M4-S5)
@@ -76,6 +79,11 @@ export async function CsvUploadsPanel({
       </section>
 
       <section aria-labelledby="csv-files-heading" className="grid gap-3">
+        {pendingCleanup > 0 && (
+          <Notice tone="info">
+            Storage cleanup pending. Reload to check progress.
+          </Notice>
+        )}
         <div className="flex items-center justify-between">
           <h2 id="csv-files-heading" className="text-base font-semibold">
             Uploaded Files

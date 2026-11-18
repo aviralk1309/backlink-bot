@@ -84,9 +84,15 @@ Job deletion queues Storage cleanup in `job_storage_cleanup`. The web app remove
 the job's CSV files immediately when Storage is available; the worker retries
 after 30 seconds if that attempt fails. Configure `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` on the worker. Check the queue and
-`job_storage_cleanup_retry_failed` logs if files remain after deletion. Keep
+`storage_cleanup_retry_failed` logs if files remain after deletion. Keep
 the queue row until the Storage API succeeds; deleting `storage.objects` via SQL
 does not remove the stored file.
+
+Deleting an individual CSV queues its raw file and error report in
+`csv_storage_cleanup` before the upload row disappears. The worker retries each
+object after 30 seconds and removes the queue row only after Storage succeeds.
+The Data tab shows a pending notice until the queue drains. Inspect this table
+and `storage_cleanup_retry_failed` logs if a deleted file remains in Storage.
 
 CSV claims expire after `CSV_LEASE_SECONDS` (default 120), renew during download,
 and retry up to `CSV_MAX_ATTEMPTS` (default 3). The runner reaps abandoned claims

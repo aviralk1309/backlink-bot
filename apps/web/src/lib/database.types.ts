@@ -174,6 +174,28 @@ export type Database = {
           },
         ];
       };
+      csv_storage_cleanup: {
+        Row: {
+          created_at: string;
+          job_id: string;
+          path: string;
+          upload_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          job_id: string;
+          path: string;
+          upload_id: string;
+        };
+        Update: {
+          created_at?: string;
+          job_id?: string;
+          path?: string;
+          upload_id?: string;
+        };
+        Relationships: [];
+      };
       csv_uploads: {
         Row: {
           claim_token: string | null;

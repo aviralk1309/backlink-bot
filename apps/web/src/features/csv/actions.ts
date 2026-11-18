@@ -4,6 +4,7 @@ import { revalidatePath } from "next/cache";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { firstIssue, type FormState } from "@/lib/auth/schemas";
 import { describeDbError } from "@/lib/db-errors";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { CSV_BUCKET, MAX_CSV_BYTES } from "./limits";
 import {
@@ -289,13 +290,38 @@ export async function deleteCsvUploadAction(
     return { error: describeDbError(error.message) };
   }
 
-  // Best-effort cleanup from Storage
+  // The DB trigger persists both the CSV and error-report paths for retry.
   if (storagePath) {
-    await supabase.storage.from(CSV_BUCKET).remove([storagePath]);
+    try {
+      const { error: removeError } = await supabase.storage
+        .from(CSV_BUCKET)
+        .remove([storagePath]);
+      if (removeError) throw removeError;
+      const { error: ackError } = await createAdminClient()
+        .from("csv_storage_cleanup")
+        .delete()
+        .eq("path", storagePath);
+      if (ackError) throw ackError;
+    } catch (cleanupError) {
+      console.error(
+        "deleteCsvUploadAction: Storage cleanup pending",
+        cleanupError,
+      );
+    }
   }
 
+  const { data: pending, error: pendingError } = await supabase
+    .from("csv_storage_cleanup")
+    .select("path")
+    .eq("upload_id", upload_id)
+    .limit(1);
   revalidatePath(`/jobs/${job_id}`);
-  return { message: "File deleted." };
+  return {
+    message:
+      pendingError || pending?.length
+        ? "File removed from job. Storage cleanup pending; reload to check progress."
+        : "File deleted.",
+  };
 }
 
 function describeSaveMappingError(error: {

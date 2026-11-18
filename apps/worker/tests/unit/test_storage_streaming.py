@@ -80,3 +80,15 @@ async def test_job_cleanup_lists_and_removes_all_files() -> None:
     assert removed.calls[0].request.content == (
         b'{"prefixes":["e2000000-0000-0000-0000-000000000001/upload.csv"]}'
     )
+
+
+@respx.mock
+async def test_single_file_cleanup_uses_exact_storage_path() -> None:
+    removed = respx.delete("https://storage.example/storage/v1/object/csv-uploads").mock(
+        return_value=httpx.Response(200, json=[])
+    )
+
+    await StorageClient("https://storage.example", "test-key").delete_file("job/upload.csv")
+
+    assert removed.call_count == 1
+    assert removed.calls[0].request.content == b'{"prefixes":["job/upload.csv"]}'
