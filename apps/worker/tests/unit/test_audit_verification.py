@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 import pytest
 import respx
 
+from worker.db.pool import ensure_restricted_role
 from worker.fetch.fetcher import FetcherConfig, PoliteFetcher
 from worker.fetch.rate_limiter import DomainRateLimiter
 from worker.io.csv_validator import validate_and_stage_csv
@@ -62,13 +63,35 @@ async def test_b07_unexpected_fetch_exception_propagates() -> None:
 
 @pytest.mark.unit
 @pytest.mark.parametrize("relative", [".env.example", "apps/worker/.env.example"])
-@pytest.mark.xfail(strict=True, reason="O-01: worker example credentials use database superuser")
 def test_o01_worker_example_does_not_use_postgres_superuser(relative: str) -> None:
     example = ROOT / relative
     line = next(
         line for line in example.read_text().splitlines() if line.startswith("DATABASE_URL=")
     )
     assert urlparse(line.removeprefix("DATABASE_URL=")).username != "postgres", example
+
+
+@pytest.mark.unit
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("role", "allowed"),
+    [
+        (("postgres", True, True), False),
+        (("bypass", False, True), False),
+        (("worker", False, False), True),
+    ],
+)
+async def test_o01_startup_rejects_privileged_role(
+    role: tuple[str, bool, bool], allowed: bool
+) -> None:
+    conn = MagicMock()
+    conn.execute = AsyncMock()
+    conn.execute.return_value.fetchone = AsyncMock(return_value=role)
+    if allowed:
+        await ensure_restricted_role(conn)
+    else:
+        with pytest.raises(RuntimeError, match="must not be superuser or bypass RLS"):
+            await ensure_restricted_role(conn)
 
 
 @pytest.mark.unit
