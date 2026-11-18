@@ -253,11 +253,6 @@ Check:
 3. **Logs**: The worker logs errors before crashing. Look for connection errors
    or missing tables.
 
-### Worker logs "no_stage_handler"
-
-This is expected until M5 (free checks). The engine runs but does not claim
-rows. Set a handler in `apps/worker/src/worker/main.py` to enable processing.
-
 ### Lease lost warnings
 
 These appear when the database cannot extend a lease. Common causes:
@@ -272,13 +267,23 @@ The original worker drops its result. This is safe.
 ### Rows stuck in "running"
 
 A worker crashed mid-processing. After the lease expires (default 120s), the
-reaper returns the row to pending. To force immediate release:
+reaper returns retryable rows to pending and marks exhausted rows failed.
+Inspect the affected job before intervening:
 
 ```sql
--- Return all stale running rows to pending
-update opportunities 
-set check_status = 'pending', locked_by = null, lease_expires_at = null, attempts = attempts + 1
-where check_status = 'running' and lease_expires_at < now();
+select id, attempts, locked_by, lease_expires_at
+from public.opportunities
+where job_id = '<job-uuid>' and check_status = 'running'
+order by lease_expires_at;
+```
+
+If the leases have expired and the worker reaper has not run, use the bounded
+RPC as the `worker` database role. Match `p_max_attempts` to the worker's
+`MAX_ATTEMPTS` setting (default 3), record the returned counts in the incident
+log, then rerun the query above to confirm those rows left `running`:
+
+```sql
+select * from public.reap_expired_leases(p_max_attempts => 3, p_limit => 500);
 ```
 
 ### Max attempts exceeded

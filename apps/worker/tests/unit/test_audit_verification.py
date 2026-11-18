@@ -95,7 +95,6 @@ async def test_o01_startup_rejects_privileged_role(
 
 
 @pytest.mark.unit
-@pytest.mark.xfail(strict=True, reason="I-04: manual runbook update bypasses the bounded reaper")
 def test_i04_stale_lease_runbook_uses_bounded_reaper() -> None:
     runbook = (ROOT / "docs/runbooks/worker.md").read_text()
     section = runbook.split('### Rows stuck in "running"', 1)[1]
