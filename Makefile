@@ -1,4 +1,4 @@
-.PHONY: setup check db-start db-stop db-reset db-test types dev-web dev-worker e2e
+.PHONY: setup check integration db-start db-stop db-reset db-test types dev-web dev-worker e2e
 
 setup:
 	pre-commit install --install-hooks
@@ -8,7 +8,10 @@ setup:
 
 check:
 	cd apps/web && pnpm lint && pnpm typecheck && pnpm format:check && pnpm test
-	cd apps/worker && uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest -m unit && uv run pytest -m integration
+	cd apps/worker && uv run ruff check . && uv run ruff format --check . && uv run mypy src && uv run pytest -m unit
+
+integration:
+	cd apps/worker && uv run pytest -m integration
 
 db-start:
 	supabase start
