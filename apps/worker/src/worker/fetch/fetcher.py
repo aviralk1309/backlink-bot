@@ -500,16 +500,6 @@ class PoliteFetcher:
                         error_message=f"Connection error: {err}",
                         elapsed_seconds=time.monotonic() - start_time,
                     )
-                except Exception as err:
-                    return FetchResult(
-                        url=initial_url,
-                        final_url=current_url,
-                        outcome="http_5xx",
-                        redirect_chain=redirect_chain,
-                        error_message=f"Unexpected error: {err}",
-                        elapsed_seconds=time.monotonic() - start_time,
-                    )
-
         # In case max redirects loop fell through
         return FetchResult(
             url=initial_url,

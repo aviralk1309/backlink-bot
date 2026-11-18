@@ -3,6 +3,7 @@
 import asyncio
 import csv
 import io
+import ipaddress
 import uuid
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock
@@ -47,10 +48,11 @@ async def test_b01_error_report_neutralizes_formula(tmp_path: Path) -> None:
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-@pytest.mark.xfail(strict=True, reason="B-07: unexpected fetch defect is hidden as a website 5xx")
 async def test_b07_unexpected_fetch_exception_propagates() -> None:
     config = FetcherConfig(user_agent="AuditBot/1.0", domain_delay_seconds=0)
-    fetcher = PoliteFetcher(config=config, rate_limiter=DomainRateLimiter(0))
+    resolver = MagicMock()
+    resolver.resolve = AsyncMock(return_value=[ipaddress.ip_address("93.184.216.34")])
+    fetcher = PoliteFetcher(config=config, rate_limiter=DomainRateLimiter(0), dns_resolver=resolver)
     with respx.mock:
         respx.get("https://example.com/bug").mock(side_effect=RuntimeError("programming defect"))
         with pytest.raises(RuntimeError, match="programming defect"):
