@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { CSV_BUCKET } from "@/features/csv/limits";
+import { csvCell } from "@/features/results/export";
 
 export async function GET(
   _request: Request,
@@ -62,8 +63,9 @@ export async function GET(
 
   const csvLines = ["row_no,raw_url,error_reason"];
   for (const r of rows ?? []) {
-    const escapedUrl = `"${(r.raw_url ?? "").replace(/"/g, '""')}"`;
-    csvLines.push(`${r.row_no},${escapedUrl},${r.error_code ?? "unknown"}`);
+    csvLines.push(
+      `${r.row_no},${csvCell(r.raw_url)},${csvCell(r.error_code ?? "unknown")}`,
+    );
   }
 
   return new NextResponse(csvLines.join("\n"), {

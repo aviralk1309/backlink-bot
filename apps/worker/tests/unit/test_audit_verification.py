@@ -20,9 +20,6 @@ ROOT = Path(__file__).resolve().parents[4]
 
 @pytest.mark.unit
 @pytest.mark.asyncio
-@pytest.mark.xfail(
-    strict=True, reason="B-01: invalid CSV URL remains an executable spreadsheet formula"
-)
 async def test_b01_error_report_neutralizes_formula(tmp_path: Path) -> None:
     formula = '=HYPERLINK("https://attacker.test/","Open")'
     source = tmp_path / "input.csv"
