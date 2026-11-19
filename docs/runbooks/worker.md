@@ -67,10 +67,14 @@ The job runner (M3-S7) is the orchestrator. It:
 
 Enable it with `RUNNER_ENABLED=true`. The worker logs when it picks up jobs.
 
-Pickup and gap/seed import commit together. The job remains visibly Queued until
-import finishes; other runners cannot complete it or claim its checks during
-that transaction. A crash or transient database error rolls the whole operation
-back for retry. A non-transient import error marks the job Failed with
+Pickup, gap/seed import, query planning, client-domain preservation and confirmed
+CSV staging purge commit together. The job remains visibly Queued until that
+transaction finishes; other runners cannot complete it or claim its checks.
+A crash before or after purge rolls the whole operation back for retry. Storage
+CSV files and saved error reports remain. Gap preview and per-row samples are
+only available before import; Results holds imported opportunities afterward.
+If the saved report is missing after purge, error download returns HTTP 410.
+A non-transient import error marks the job Failed with
 `import_failed:<ExceptionClass>` in its status reason and activity log.
 Pause/Stop requests concurrent with import wait for its job lock, then take
 effect. See [ADR 0014](../adr/0014-atomic-job-import.md) for the transaction

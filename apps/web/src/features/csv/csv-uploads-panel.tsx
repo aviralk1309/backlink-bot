@@ -60,7 +60,7 @@ export async function CsvUploadsPanel({
     (u) => u.kind === "competitor" && u.status === "confirmed",
   );
   const [gapPreview, gapDomains] =
-    confirmedCompetitors.length > 0
+    isDraft && confirmedCompetitors.length > 0
       ? await Promise.all([getJobGapPreview(jobId), getJobGapDomains(jobId)])
       : [null, []];
 
@@ -71,11 +71,18 @@ export async function CsvUploadsPanel({
         <h2 id="gap-preview-heading" className="sr-only">
           Gap Preview
         </h2>
-        <GapPreviewPanel
-          preview={gapPreview}
-          domains={gapDomains}
-          confirmedCompetitorCount={confirmedCompetitors.length}
-        />
+        {isDraft ? (
+          <GapPreviewPanel
+            preview={gapPreview}
+            domains={gapDomains}
+            confirmedCompetitorCount={confirmedCompetitors.length}
+          />
+        ) : (
+          <Notice tone="info">
+            Gap preview is available before the job starts. Imported
+            opportunities are in Results.
+          </Notice>
+        )}
       </section>
 
       <section aria-labelledby="csv-files-heading" className="grid gap-3">

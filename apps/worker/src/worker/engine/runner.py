@@ -26,6 +26,23 @@ class TickResult:
     completed: int
 
 
+async def purge_confirmed_csv_rows(conn: psycopg.AsyncConnection, job_id: uuid.UUID) -> None:
+    """Preserve client-domain evidence and remove staging in the pickup transaction."""
+    await conn.execute(
+        "insert into public.job_client_domains(job_id, domain) "
+        "select distinct u.job_id, r.domain from public.csv_uploads u "
+        "join public.csv_rows r on r.upload_id = u.id "
+        "where u.job_id = %s and u.kind = 'client' and u.status = 'confirmed' "
+        "and r.is_valid and r.domain is not null on conflict do nothing",
+        (job_id,),
+    )
+    await conn.execute(
+        "delete from public.csv_rows r using public.csv_uploads u "
+        "where r.upload_id = u.id and u.job_id = %s and u.status = 'confirmed'",
+        (job_id,),
+    )
+
+
 async def pick_up_next_job(pool: AsyncConnectionPool) -> tuple[uuid.UUID, str] | None:
     """Publish pickup and all imports together; a disconnect rolls back both.
 
@@ -50,6 +67,7 @@ async def pick_up_next_job(pool: AsyncConnectionPool) -> tuple[uuid.UUID, str] |
                 async with conn.transaction():
                     import_result = await gap.import_job_gap_and_seeds(conn, job_id)
                     query_plan = await queries.create_job_queries(conn, job_id)
+                    await purge_confirmed_csv_rows(conn, job_id)
             except (psycopg.OperationalError, psycopg.InterfaceError):
                 # Connection loss, deadlocks, serialization conflicts and query
                 # cancellation roll back pickup too. Retry on the next poll.

@@ -22,7 +22,7 @@ export async function GET(
 
   const { data: upload, error: uploadErr } = await supabase
     .from("csv_uploads")
-    .select("id, filename, error_report_path")
+    .select("id, filename, error_report_path, invalid_rows, empty_rows")
     .eq("id", uploadId)
     .eq("job_id", jobId)
     .maybeSingle();
@@ -59,6 +59,15 @@ export async function GET(
 
   if (rowsErr) {
     return new NextResponse("Failed to load errors", { status: 500 });
+  }
+  if (
+    (rows?.length ?? 0) === 0 &&
+    upload.invalid_rows + upload.empty_rows > 0
+  ) {
+    return new NextResponse(
+      "Error report unavailable: staged errors were purged after import and the saved report could not be loaded.",
+      { status: 410 },
+    );
   }
 
   const csvLines = ["row_no,raw_url,error_reason"];

@@ -21,6 +21,7 @@ from psycopg_pool import AsyncConnectionPool
 
 from worker.db.pool import open_pool
 from worker.engine import gap
+from worker.engine import runner as runner_module
 from worker.engine.claims import ClaimedRow, claim_checks
 from worker.engine.loop import Engine, EngineConfig
 from worker.engine.runner import JobRunner, complete_drained_jobs
@@ -243,6 +244,91 @@ def configure_gap(job: str) -> None:
             " values (%s, 1, 'https://gap-example.org/page', 'https://gap-example.org/page',"
             " 'gap-example.org', 'gap-example.org', true)",
             (upload,),
+        )
+
+
+def configure_client(job: str) -> None:
+    upload = uuid.uuid4()
+    with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
+        admin.execute(
+            "insert into public.csv_uploads"
+            " (id,job_id,kind,filename,storage_path,size_bytes,status,mapping,confirmed_at)"
+            " values (%s,%s,'client','client.csv',%s,100,'confirmed','{\"url_index\":0}',now())",
+            (upload, job, f"{job}/{upload}.csv"),
+        )
+        admin.execute(
+            "insert into public.csv_rows"
+            " (upload_id,row_no,raw_url,normalized_url,host,domain,is_valid)"
+            " values (%s,1,'https://linked-client.example/a','https://linked-client.example/a',"
+            " 'linked-client.example','linked-client.example',true)",
+            (upload,),
+        )
+
+
+@pytest.mark.parametrize("crash_after_purge", [False, True])
+async def test_csv_purge_rolls_back_with_pickup_then_retries(
+    make_job: MakeJob,
+    monkeypatch: pytest.MonkeyPatch,
+    crash_after_purge: bool,
+) -> None:
+    job = make_job("queued")
+    configure_gap(job)
+    configure_client(job)
+    original = runner_module.purge_confirmed_csv_rows
+
+    async def crash_at_purge(conn: Any, job_id: uuid.UUID) -> None:
+        if crash_after_purge:
+            await original(conn, job_id)
+        raise psycopg.OperationalError("injected crash at CSV purge")
+
+    monkeypatch.setattr(runner_module, "purge_confirmed_csv_rows", crash_at_purge)
+    async with open_pool(WORKER_URL, max_size=4) as pool:
+        with pytest.raises(psycopg.OperationalError):
+            await JobRunner(pool, 0.2, asyncio.Event()).tick()
+        assert status(job) == "queued|-"
+        assert opportunity_count(job) == 0
+        assert (
+            scalar(
+                "select count(*) from public.csv_rows r "
+                "join public.csv_uploads u on u.id=r.upload_id where u.job_id=%s::uuid",
+                job,
+            )
+            == 2
+        )
+        assert (
+            scalar("select count(*) from public.job_client_domains where job_id=%s::uuid", job) == 0
+        )
+
+        monkeypatch.setattr(runner_module, "purge_confirmed_csv_rows", original)
+        await JobRunner(pool, 0.2, asyncio.Event()).tick()
+        assert status(job) == "running|-"
+        assert opportunity_count(job) == 1
+        assert (
+            scalar(
+                "select count(*) from public.csv_rows r "
+                "join public.csv_uploads u on u.id=r.upload_id where u.job_id=%s::uuid",
+                job,
+            )
+            == 0
+        )
+        assert (
+            scalar("select domain from public.job_client_domains where job_id=%s::uuid", job)
+            == "linked-client.example"
+        )
+        with psycopg.connect(ADMIN_URL, autocommit=True) as admin:
+            admin.execute(
+                "select opp_id from public.record_discovery(%s::uuid,"
+                "'https://linked-client.example/new','https://linked-client.example/new',"
+                "'linked-client.example','linked-client.example','google','query')",
+                (job,),
+            )
+        assert (
+            scalar(
+                "select flags->>'already_links_to_client' from public.opportunities"
+                " where job_id=%s::uuid and normalized_url='https://linked-client.example/new'",
+                job,
+            )
+            == "true"
         )
 
 

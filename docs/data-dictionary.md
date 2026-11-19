@@ -553,8 +553,9 @@ Unique: `(job_id, normalized_url)`. The same URL may exist in different jobs (I7
 For a Google discovery, a confirmed client CSV makes `client_link_status`
 `known_partial`. A valid client CSV row with the same registered domain sets
 `flags.already_links_to_client=true`; the result remains eligible for checks and
-review. This lookup currently reads `csv_rows`, so M9-S3 must preserve that
-domain evidence before staging retention is enabled.
+review. During draft review the lookup reads `csv_rows`; job pickup copies valid
+client domains to `job_client_domains` before purging staging, so later Google
+discoveries retain the same flag behavior.
 
 Indexes:
 - `opportunities_claim_idx`: `(priority, created_at, id)` WHERE `check_status = 'pending'` - claim order
@@ -817,7 +818,7 @@ Staging, one row per CSV record, including empty and invalid ones.
 
 | Column | Type | Meaning |
 |---|---|---|
-| upload_id, row_no | uuid, integer | Primary key. Deleted with the upload. `row_no` is the 1-based DATA record number: header and preamble are not counted, blank lines are counted as empty rows. |
+| upload_id, row_no | uuid, integer | Primary key. Deleted with the upload or after confirmed job import. `row_no` is the 1-based DATA record number: header and preamble are not counted, blank lines are counted as empty rows. |
 | raw_url | text | As in the file, max 4096. |
 | normalized_url, host, domain | text | Set when valid. Same shape rules as `opportunities`. |
 | extras | jsonb object | Optional columns, keyed by mapping label. |
@@ -827,8 +828,18 @@ Staging, one row per CSV record, including empty and invalid ones.
 The physical line is not stored. A quoted cell with a line break makes line
 differ from `row_no + header_line`.
 
-Access: select needs `csv.upload`. Worker writes. Purged after import is
-confirmed (M9-S3).
+Access: select needs `csv.upload`. Worker writes. During job pickup, gap/seed
+import, query planning, client-domain preservation, and deletion of confirmed
+uploads' staged rows commit in one transaction. A crash rolls all of them back.
+Upload counts and Storage files remain. Gap preview and per-row error samples
+are available before import; afterward Results shows imported opportunities and
+the saved Storage error report remains downloadable. If that report is missing,
+the download route returns a clear 410 response instead of an empty CSV.
+
+### `public.job_client_domains`
+Distinct valid client CSV domains retained for Google discovery flags after
+staging is purged. Primary key `(job_id, domain)`; job deletion cascades. The
+worker inserts during job pickup. Browser roles have no direct access.
 
 ### Storage bucket `csv-uploads`
 Private. 100 MiB limit (same number as `apps/web/src/features/csv/limits.ts`).
