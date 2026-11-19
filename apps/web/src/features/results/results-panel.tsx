@@ -114,7 +114,8 @@ export async function ResultsPanel({
       <div>
         <h2 className="text-lg font-semibold">Results</h2>
         <p className="text-muted-foreground text-sm">
-          Review Ready results. Later results wait in Backlog when Ready is full.
+          Review Ready results. Later results wait in Backlog when Ready is
+          full.
         </p>
       </div>
 
