@@ -1,3 +1,5 @@
+> **Pre-fix snapshot.** This report records reproductions before the batch A fixes. See [the batch A review](11-batch-a-review.md) for the current status.
+
 # Audit finding verification
 
 ## Executive summary
