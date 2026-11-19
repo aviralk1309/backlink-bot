@@ -6,7 +6,7 @@ See the [project overview](../../README.md), [worker runbook](../../docs/runbook
 
 ## Run locally
 
-Start Supabase from the repository root, then create `.env` from `.env.example` and set `DATABASE_URL` to the worker database role. Storage cleanup also needs `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY`. Search is disabled by default; enable it only when `SERPER_API_KEY` is configured.
+Start Supabase from the repository root, then create `.env.local` from `.env.example` and set `DATABASE_URL` to the local `worker` database role. Set `SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` to the same local stack for Storage. `make dev-worker` selects this profile. For a cloud worker, use a separate ignored `.env.production` with the existing restricted worker-role password in `DATABASE_URL` and matching cloud Storage credentials, then run `make prod-worker`. Paid search remains disabled.
 
 ```sh
 uv sync --frozen

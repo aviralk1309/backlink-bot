@@ -7,7 +7,7 @@
 | Integration tests (worker) | `cd apps/worker && uv run pytest -m integration` | local Supabase with worker role | yes |
 | SQL tests (RLS, guards, functions) | `make db-verify` | `make db-start` | **wipes the local database first** |
 | Review capture audit | `psql "$AUDIT_DATABASE_URL" -X -f scripts/audit-review-capture.sql` | PostgreSQL URL for a role with full opportunity and review-history visibility | no |
-| End-to-end (browser) | `make e2e` | `make db-start`, `apps/web/.env.local` pointing at local Supabase | creates `e2e-*` users and roles |
+| End-to-end (browser) | `make e2e` | `make db-start`, `apps/web/.env.development.local` pointing at local Supabase | creates `e2e-*` users and roles |
 
 Stop the live worker before worker integration tests. These tests create Running
 jobs in the local database; another worker can claim them and call the paid
@@ -35,6 +35,8 @@ After `make db-verify` the local database has no users. Recreate your Admin:
 - First run: `pnpm exec playwright install chromium`; install worker dependencies
   with `cd apps/worker && uv sync`.
 - Playwright builds production code and owns a server on `localhost:3100`.
+  Its build inherits `apps/web/.env.development.local`, so the cloud production
+  profile cannot redirect the browser tests.
   It refuses an existing server rather than silently reusing a stale development
   process. Traces and screenshots are retained on failure; login failures include
   browser errors and failed request paths. Keep port 3100 free.

@@ -99,7 +99,7 @@ test("upload a CSV, preview rows, map columns, and save a template", async ({
   // 6. Verify preview table and auto-guessed URL column
   await expect(page.locator("#csv-url-column")).toHaveValue("0");
   await expect(page.getByText("First Article").first()).toBeVisible();
-  await expect(page.getByText("Second Article").first()).toBeVisible();
+  await expect(page.getByText("1 preview row")).toBeVisible();
 
   // 7. Configure extra columns and save as reusable template
   await page

@@ -1,4 +1,4 @@
-.PHONY: setup check integration db-start db-stop db-reset db-test types dev-web dev-worker e2e
+.PHONY: setup check integration db-start db-stop db-reset db-test types dev-web dev-worker prod-web prod-worker e2e
 
 setup:
 	pre-commit install --install-hooks
@@ -34,7 +34,13 @@ dev-web:
 	cd apps/web && pnpm dev
 
 dev-worker:
-	cd apps/worker && uv run python -m worker
+	cd apps/worker && WORKER_ENV=local uv run python -m worker
+
+prod-web:
+	cd apps/web && pnpm build && pnpm start
+
+prod-worker:
+	cd apps/worker && WORKER_ENV=production uv run python -m worker
 
 e2e:
 	cd apps/web && pnpm e2e

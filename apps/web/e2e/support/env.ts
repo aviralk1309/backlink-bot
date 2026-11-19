@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 
 /** Playwright does not load Next's env files, so read them here. */
 function loadEnvFiles() {
-  for (const file of [".env.local", ".env"]) {
+  for (const file of [".env.development.local", ".env"]) {
     try {
       process.loadEnvFile(file);
     } catch {
@@ -14,7 +14,7 @@ function loadEnvFiles() {
 function need(name: string): string {
   const value = process.env[name];
   if (!value) {
-    throw new Error(`e2e needs ${name} (apps/web/.env.local).`);
+    throw new Error(`e2e needs ${name} (apps/web/.env.development.local).`);
   }
   return value;
 }
@@ -26,7 +26,7 @@ function localUrl(): string {
   const host = new URL(url).hostname;
   if (host !== "127.0.0.1" && host !== "localhost") {
     throw new Error(
-      `Refusing to run e2e against ${host}. Point .env.local at local Supabase.`,
+      `Refusing to run e2e against ${host}. Point .env.development.local at local Supabase.`,
     );
   }
   return url;

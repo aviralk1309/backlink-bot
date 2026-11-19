@@ -13,8 +13,10 @@ Run from `apps/web` on a machine you trust: the script uses the service key.
     pnpm bootstrap:admin --confirm-url <NEXT_PUBLIC_SUPABASE_URL>
 
 `NEXT_PUBLIC_SUPABASE_URL` and `SUPABASE_SERVICE_ROLE_KEY` come from the
-shell or `apps/web/.env.local`. `--confirm-url` must equal that URL exactly,
-so a run against the wrong environment stops before it touches anything.
+shell or `apps/web/.env.development.local`. Set `BOOTSTRAP_ENV=production` to
+read `apps/web/.env.production.local` for a cloud bootstrap. `--confirm-url`
+must equal that URL exactly, so a run against the wrong environment stops
+before it touches anything.
 
 ## What it does
 

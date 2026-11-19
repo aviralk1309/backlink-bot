@@ -29,7 +29,11 @@ and picks up queued jobs.
 
 ## Configuration
 
-The worker reads from `.env` in `apps/worker/` or environment variables:
+The worker reads `.env.local` by default, or `.env.production` when
+`WORKER_ENV=production`. `make dev-worker` and `make prod-worker` select those
+profiles. Environment variables override the selected file. Keep the database
+and Storage URLs pointed at the same Supabase project; the local profile rejects
+nonlocal URLs. The production database URL must use the restricted `worker` role.
 
 `SITE_CRAWL_ENABLED=false` and `LINK_VERIFICATION_ENABLED=false` keep the new
 site crawl and placed-link checks off. Before enabling either one, set
@@ -136,9 +140,10 @@ Within the same priority, older rows are claimed first.
 
 ## Search execution (M8-S4/S5/S6)
 
-`SEARCH_ENABLED=false` is the default. With a worker-role database connection
-and `SERPER_API_KEY` configured, set it to `true` to run paid queries. Confirm
-M8-D2 provider rate limits and M8-D3 location mapping before production use.
+`SEARCH_ENABLED=false` is the default. Keep paid search disabled until B-04,
+B-05 and P-04 are fixed and tested (decision D4a). The behavior below applies
+only after those gates are met, with a worker-role database connection and
+`SERPER_API_KEY` configured.
 Each worker runs up to two queries concurrently, and PostgreSQL caps each job
 at two active claims across all workers. Claims use `SKIP LOCKED` and a renewable lease;
 expired claims retry up to `MAX_ATTEMPTS` and then become `failed`.

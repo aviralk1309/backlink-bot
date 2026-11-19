@@ -54,7 +54,9 @@ test("Manager navigation does not poll forbidden worker health", async ({
   });
   try {
     await login(page, E2E_USER.email, E2E_PASSWORD);
-    await expect(page.getByRole("link", { name: "Jobs" })).toBeVisible();
+    await expect(
+      page.getByRole("link", { name: "Jobs", exact: true }),
+    ).toBeVisible();
     await page.waitForTimeout(1000);
     expect((await page.request.get("/api/system/workers")).status()).toBe(403);
     expect(healthRequests).toEqual([]);
@@ -71,7 +73,9 @@ test("Viewer sees no Admin link and gets No access on every admin page", async (
 }) => {
   await login(page, E2E_USER.email, E2E_PASSWORD);
 
-  await expect(page.getByRole("link", { name: "Jobs" })).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: "Jobs", exact: true }),
+  ).toBeVisible();
   await expect(
     page.getByRole("link", { name: "Admin", exact: true }),
   ).toHaveCount(0);

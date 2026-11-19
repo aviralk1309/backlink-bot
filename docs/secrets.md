@@ -1,5 +1,10 @@
 # Secrets and env vars
 
+Local web and worker credentials live in ignored `apps/web/.env.development.local`
+and `apps/worker/.env.local`. Cloud credentials live separately in ignored
+`apps/web/.env.production.local` and `apps/worker/.env.production`. Never put a
+`postgres` database login in the worker profile.
+
 ## Web app
 | Variable | Where | Who may hold it |
 |---|---|---|

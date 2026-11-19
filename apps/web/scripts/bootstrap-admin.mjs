@@ -5,7 +5,8 @@
 //
 // Reads BOOTSTRAP_ADMIN_EMAIL (required), BOOTSTRAP_ADMIN_NAME,
 // BOOTSTRAP_ADMIN_PASSWORD and BOOTSTRAP_APP_URL from the shell or
-// .env.local. Without a password it prints a one-time set-password link.
+// .env.development.local (or .env.production.local with BOOTSTRAP_ENV=production).
+// Without a password it prints a one-time set-password link.
 // Uses the service key: run it only from a trusted machine.
 import { createClient } from "@supabase/supabase-js";
 import {
@@ -14,7 +15,11 @@ import {
   planBootstrap,
 } from "./bootstrap-lib.mjs";
 
-for (const file of [".env.local", ".env"]) {
+const envProfile = process.env.BOOTSTRAP_ENV ?? "development";
+if (!["development", "production"].includes(envProfile)) {
+  throw new Error("BOOTSTRAP_ENV must be development or production");
+}
+for (const file of [`.env.${envProfile}.local`, ".env"]) {
   try {
     // Variables already set in the shell win over the file.
     process.loadEnvFile(file);
@@ -36,9 +41,13 @@ async function main() {
   if (!parsed.ok) die(parsed.error);
   const { email, name, password, supabaseUrl, appUrl } = parsed.value;
 
-  const admin = createClient(supabaseUrl, process.env.SUPABASE_SERVICE_ROLE_KEY, {
-    auth: { persistSession: false, autoRefreshToken: false },
-  });
+  const admin = createClient(
+    supabaseUrl,
+    process.env.SUPABASE_SERVICE_ROLE_KEY,
+    {
+      auth: { persistSession: false, autoRefreshToken: false },
+    },
+  );
 
   console.log(`Database: ${supabaseUrl}`);
   console.log(`Email:    ${email}`);
@@ -91,7 +100,9 @@ async function main() {
       });
       const hashed = data?.properties?.hashed_token;
       if (error || !data?.user || !hashed) {
-        die(`Could not create the invite: ${error?.message ?? "unknown error"}`);
+        die(
+          `Could not create the invite: ${error?.message ?? "unknown error"}`,
+        );
       }
       userId = data.user.id;
       setupLink = `${appUrl}/auth/confirm?token_hash=${encodeURIComponent(hashed)}&type=invite`;
@@ -112,7 +123,9 @@ async function main() {
   if (updateError || !updated?.length) {
     // Do not leave a half-made account behind.
     if (created) await admin.auth.admin.deleteUser(userId);
-    die(`Could not make the user an Admin: ${updateError?.message ?? "no row updated"}`);
+    die(
+      `Could not make the user an Admin: ${updateError?.message ?? "no row updated"}`,
+    );
   }
 
   if (created) {
