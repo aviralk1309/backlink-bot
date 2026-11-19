@@ -76,13 +76,16 @@ def test_o01_worker_example_does_not_use_postgres_superuser(relative: str) -> No
 @pytest.mark.parametrize(
     ("role", "allowed"),
     [
-        (("postgres", True, True), False),
-        (("bypass", False, True), False),
-        (("worker", False, False), True),
+        ((True, False, False, False, False), False),
+        ((False, True, False, False, False), False),
+        ((False, False, True, False, False), False),
+        ((False, False, False, True, False), False),
+        ((False, False, False, False, True), False),
+        ((False, False, False, False, False), True),
     ],
 )
 async def test_o01_startup_rejects_privileged_role(
-    role: tuple[str, bool, bool], allowed: bool
+    role: tuple[bool, bool, bool, bool, bool], allowed: bool
 ) -> None:
     conn = MagicMock()
     conn.execute = AsyncMock()
@@ -90,7 +93,7 @@ async def test_o01_startup_rejects_privileged_role(
     if allowed:
         await ensure_restricted_role(conn)
     else:
-        with pytest.raises(RuntimeError, match="must not be superuser or bypass RLS"):
+        with pytest.raises(RuntimeError, match="privileged attributes"):
             await ensure_restricted_role(conn)
 
 

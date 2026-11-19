@@ -9,11 +9,12 @@ from psycopg_pool import AsyncConnectionPool
 async def ensure_restricted_role(conn: AsyncConnection[Any]) -> None:
     row = await (
         await conn.execute(
-            "select rolname, rolsuper, rolbypassrls from pg_roles where rolname = current_user"
+            "select rolsuper, rolbypassrls, rolcreaterole, rolcreatedb, rolreplication "
+            "from pg_roles where rolname = current_user"
         )
     ).fetchone()
-    if row is None or row[1] or row[2]:
-        raise RuntimeError("Worker database role must not be superuser or bypass RLS")
+    if row is None or any(row):
+        raise RuntimeError("Worker database role has privileged attributes")
 
 
 @asynccontextmanager
