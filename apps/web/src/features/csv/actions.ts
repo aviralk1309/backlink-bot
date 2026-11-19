@@ -293,11 +293,12 @@ export async function deleteCsvUploadAction(
   // The DB trigger persists both the CSV and error-report paths for retry.
   if (storagePath) {
     try {
-      const { error: removeError } = await supabase.storage
+      const admin = createAdminClient();
+      const { error: removeError } = await admin.storage
         .from(CSV_BUCKET)
         .remove([storagePath]);
       if (removeError) throw removeError;
-      const { error: ackError } = await createAdminClient()
+      const { error: ackError } = await admin
         .from("csv_storage_cleanup")
         .delete()
         .eq("path", storagePath);

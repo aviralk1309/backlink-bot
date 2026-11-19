@@ -71,6 +71,16 @@ jobs:
           TEST_WORKER_DATABASE_URL: postgresql://worker:worker@127.0.0.1:54322/postgres
           TEST_ADMIN_DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
         run: uv run pytest -m integration
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10.29.1
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm, cache-dependency-path: apps/web/pnpm-lock.yaml }
+      - run: pnpm install --frozen-lockfile
+        working-directory: apps/web
+      - name: Run CSV Storage action integration
+        working-directory: apps/web
+        run: RUN_LOCAL_STORAGE_TESTS=1 pnpm exec vitest run src/features/csv/delete-upload.integration.test.ts
 
   worker:
     runs-on: ubuntu-latest

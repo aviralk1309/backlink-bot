@@ -12,6 +12,7 @@ check:
 
 integration:
 	cd apps/worker && uv run pytest -m integration
+	cd apps/web && RUN_LOCAL_STORAGE_TESTS=1 pnpm exec vitest run src/features/csv/delete-upload.integration.test.ts
 
 db-start:
 	supabase start
