@@ -122,7 +122,7 @@ export async function ReportPanel({
     <section aria-label="Report" className="space-y-5">
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
         <div className="bg-card rounded-xl border p-5 sm:col-span-2">
-          <p className="text-muted-foreground text-sm">Top-50 approval rate</p>
+          <p className="text-muted-foreground text-sm">First-Ready approval rate</p>
           <p className="mt-1 text-4xl font-semibold tabular-nums">
             {rate(top?.approval_rate ?? null)}
           </p>
