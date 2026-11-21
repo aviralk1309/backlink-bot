@@ -2,8 +2,8 @@
 
 import asyncio
 import os
-import time
 import uuid
+from datetime import timedelta
 
 import psycopg
 import pytest
@@ -31,17 +31,29 @@ def domain():
 
 
 async def test_independent_worker_pools_share_domain_slots(domain):
+    delay = 0.08
     async with open_pool(WORKER_URL) as first, open_pool(WORKER_URL) as second:
-        limiters = [PostgresDomainRateLimiter(first, 0.08), PostgresDomainRateLimiter(second, 0.08)]
-        grants = []
+        limiters = [
+            PostgresDomainRateLimiter(first, delay),
+            PostgresDomainRateLimiter(second, delay),
+        ]
+        await limiters[0].acquire(domain)
+        async with await psycopg.AsyncConnection.connect(ADMIN_URL) as admin:
 
-        async def acquire(limiter):
-            await limiter.acquire(domain)
-            grants.append(time.monotonic())
+            async def next_slot():
+                row = await (
+                    await admin.execute(
+                        "select next_allowed_at from public.fetch_domain_limits where domain = %s",
+                        (domain,),
+                    )
+                ).fetchone()
+                assert row is not None
+                return row[0]
 
-        await asyncio.gather(*(acquire(limiters[i % 2]) for i in range(6)))
-    assert len(grants) == 6
-    assert all(b - a >= 0.065 for a, b in zip(grants, grants[1:], strict=False))
+            first_slot = await next_slot()
+            await asyncio.gather(*(limiters[i % 2].acquire(domain) for i in range(5)))
+            last_slot = await next_slot()
+    assert last_slot - first_slot >= timedelta(seconds=5 * delay)
 
 
 async def test_cancelled_waiter_does_not_reserve_future_slots(domain):
