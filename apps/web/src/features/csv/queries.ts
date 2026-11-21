@@ -86,7 +86,7 @@ export async function getCsvUploadForMapping(
  * Reads only the first CSV_SAMPLE_BYTES of the file. Never downloads the whole
  * object (limit is 100 MB). Uses a short signed URL created under the user's own
  * session, so storage RLS (csv.upload) decides. If the server ignores Range and
- * answers 200, the stream is cut and cancelled at the limit.
+ * answers 200, the stream is cut and aborted at the limit.
  */
 export async function getCsvUploadSample(
   upload: Pick<CsvUploadItem, "id" | "job_id" | "size_bytes"> & {
@@ -101,8 +101,10 @@ export async function getCsvUploadSample(
   if (error || !data?.signedUrl) return { ok: false, reason: "not_found" };
 
   let bytes: Uint8Array;
+  const controller = new AbortController();
   try {
     const res = await fetch(data.signedUrl, {
+      signal: controller.signal,
       headers: { Range: `bytes=0-${CSV_SAMPLE_BYTES - 1}` },
       cache: "no-store",
     });
@@ -111,6 +113,9 @@ export async function getCsvUploadSample(
   } catch (err) {
     console.error("getCsvUploadSample: fetch failed", err);
     return { ok: false, reason: "unreadable" };
+  } finally {
+    // Aborting also closes a 200 response; awaiting reader.cancel() can hang.
+    controller.abort();
   }
 
   const truncated = upload.size_bytes > bytes.length;
@@ -133,7 +138,7 @@ async function readUpTo(
       total += value.length;
     }
   } finally {
-    await reader.cancel().catch(() => undefined);
+    reader.releaseLock();
   }
   const out = new Uint8Array(Math.min(total, limit));
   let offset = 0;

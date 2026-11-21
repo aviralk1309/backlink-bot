@@ -19,6 +19,7 @@ Thumbs.db
 .env.*
 !.env.example
 !.env.template
+/deploy/production/production.env
 
 # ============================================================
 # Node / Next.js

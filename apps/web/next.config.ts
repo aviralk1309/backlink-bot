@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   /* config options here */
+  output: "standalone",
   cacheComponents: true,
   partialPrefetching: true,
   // Lets pages call forbidden() and render app/**/forbidden.tsx.

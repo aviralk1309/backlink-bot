@@ -1,6 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Notice } from "@/components/ui/notice";
+import { QueryRefresh as UploadStatusRefresh } from "@/features/jobs/query-refresh";
 import {
   Table,
   TableBody,
@@ -66,6 +67,11 @@ export async function CsvUploadsPanel({
 
   return (
     <div className="grid gap-8">
+      {uploads.some(
+        (u) => u.status === "mapped" || u.status === "processing",
+      ) ? (
+        <UploadStatusRefresh />
+      ) : null}
       {/* Pre-start Gap Preview (M4-S8) */}
       <section aria-labelledby="gap-preview-heading">
         <h2 id="gap-preview-heading" className="sr-only">

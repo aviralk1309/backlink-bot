@@ -71,10 +71,17 @@ test("upload a CSV, preview rows, map columns, and save a template", async ({
 
   // 3. Upload a CSV file
   await page.locator("#csv-competitor").fill("rival-test.com");
+  const extraRows = 20_000;
   const csvContent =
     "Source URL,Referring Page Title,Anchor Text,Domain Rating\n" +
     "https://example.com/blog/p1,First Article,great brand,42\n" +
-    "https://example.com/blog/p2,Second Article,click here,55\n";
+    "https://example.com/blog/p2,Second Article,click here,55\n" +
+    Array.from(
+      { length: extraRows },
+      (_, i) =>
+        `https://example.com/blog/${i + 3},${"Article ".repeat(10)}${i},anchor,42\n`,
+    ).join("");
+  expect(Buffer.byteLength(csvContent)).toBeGreaterThan(2 * 1024 * 1024);
 
   await page.locator('input[type="file"]').setInputFiles({
     name: "backlinks.csv",
@@ -130,6 +137,20 @@ test("upload a CSV, preview rows, map columns, and save a template", async ({
   await expect(page.getByRole("heading", { name: "Map columns" })).toHaveCount(
     0,
   );
+
+  const jobId = /\/jobs\/([0-9a-f-]{36})/.exec(page.url())![1];
+  await runIngestion("csv", jobId);
+  const { data: processed, error: processingError } = await e2eAdminClient()
+    .from("csv_uploads")
+    .select("status, total_rows, valid_rows")
+    .eq("job_id", jobId)
+    .single();
+  expect(processingError).toBeNull();
+  expect(processed).toMatchObject({
+    status: "ready",
+    total_rows: extraRows + 2,
+    valid_rows: extraRows + 2,
+  });
 });
 
 test("complete lifecycle: upload, map, confirm, gap preview, and start job", async ({
@@ -216,9 +237,10 @@ test("complete lifecycle: upload, map, confirm, gap preview, and start job", asy
   expect(report.error).toBeNull();
   expect(await report.data!.text()).toContain("bad-url,bad_url");
 
-  // 6. Reload to fetch updated ready status
-  await page.reload();
-  await expect(fileRow).toContainText("Ready to confirm");
+  // 6. The Uploads tab refreshes the worker's status without a manual reload.
+  await expect(fileRow).toContainText("Ready to confirm", {
+    timeout: 15_000,
+  });
 
   // 7. Click 'Review summary' and confirm file
   await fileRow.getByRole("button", { name: "Review summary" }).click();
