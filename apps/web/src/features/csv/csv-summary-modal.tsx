@@ -246,6 +246,23 @@ export function CsvSummaryModal({
           </div>
         )}
 
+        {hasErrors && sampleErrors.length === 0 && (
+          <p className="text-muted-foreground text-sm">
+            Per-row errors are unavailable after import. The saved error report
+            may still be downloaded below.
+          </p>
+        )}
+        {hasErrors && sampleErrors.length === 0 && (
+          <a
+            href={`/api/jobs/${jobId}/uploads/${uploadId}/errors`}
+            download
+            className="text-primary inline-flex items-center gap-1 text-xs font-medium hover:underline"
+          >
+            <Download className="h-3.5 w-3.5" />
+            Download full error CSV
+          </a>
+        )}
+
         {/* Sample errors table */}
         {sampleErrors.length > 0 && (
           <div className="grid gap-2">

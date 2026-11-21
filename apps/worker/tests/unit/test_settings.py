@@ -1,6 +1,40 @@
+from pathlib import Path
+
 import pytest
 
-from worker.config.settings import Settings
+from worker.config.settings import Settings, get_settings
+
+
+@pytest.mark.unit
+def test_worker_profile_selects_its_env_file(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.delenv("DATABASE_URL", raising=False)
+    (tmp_path / ".env.local").write_text("DATABASE_URL=postgresql://worker@127.0.0.1/postgres\n")
+    (tmp_path / ".env.production").write_text(
+        "DATABASE_URL=postgresql://worker@cloud.example/postgres\n"
+    )
+    try:
+        monkeypatch.setenv("WORKER_ENV", "local")
+        get_settings.cache_clear()
+        assert get_settings().database_url == "postgresql://worker@127.0.0.1/postgres"
+        monkeypatch.setenv("WORKER_ENV", "production")
+        get_settings.cache_clear()
+        assert get_settings().database_url == "postgresql://worker@cloud.example/postgres"
+        (tmp_path / ".env.production").write_text("DATABASE_URL=\n")
+        get_settings.cache_clear()
+        with pytest.raises(ValueError, match="restricted worker role"):
+            get_settings()
+        monkeypatch.setenv("WORKER_ENV", "local")
+        (tmp_path / ".env.local").write_text(
+            "DATABASE_URL=postgresql://worker@cloud.example/postgres\n"
+        )
+        get_settings.cache_clear()
+        with pytest.raises(ValueError, match="must use local"):
+            get_settings()
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.unit

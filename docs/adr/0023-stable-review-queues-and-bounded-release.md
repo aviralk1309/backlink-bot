@@ -27,10 +27,9 @@ write queue membership or first-ready evidence directly. The job page shows queu
 counts and a release control only to roles with both permissions. SQL is the final
 authority and rechecks permissions, capacity, eligibility and job existence.
 
-The Ready count currently occupies the configured window. M6's review status will
-allow reviewed rows to stop occupying that window while preserving their queue
-history. The S8 release RPC is the single operation M6 will use after review frees
-capacity. No new high-scored row displaces an existing Ready member.
+Only New and In review Ready rows occupy the configured pending window. Decided
+rows retain their queue history but free capacity. The release RPC can fill that
+capacity from Backlog. No new high-scored row displaces an existing Ready member.
 
 ## Tradeoffs
 

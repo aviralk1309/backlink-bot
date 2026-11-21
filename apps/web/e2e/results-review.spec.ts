@@ -154,7 +154,9 @@ test("review results, view their report, export them, and enforce Viewer access"
 
   await page.goto(`/jobs/${jobId}?tab=report`);
   const jobReport = page.getByRole("region", { name: "Report" });
-  const jobHeadline = jobReport.getByText("Top-50 approval rate").locator("..");
+  const jobHeadline = jobReport
+    .getByText("First-Ready approval rate")
+    .locator("..");
   await expect(jobHeadline).toContainText("50.0%");
   await expect(jobHeadline).toContainText("1 approved + 0 used / 2 decided");
   await expect(
@@ -167,7 +169,7 @@ test("review results, view their report, export them, and enforce Viewer access"
   await page.goto(`/reports?job=${jobId}`);
   const overallReport = page.getByRole("region", { name: "Report" });
   await expect(
-    overallReport.getByText("Top-50 approval rate").locator(".."),
+    overallReport.getByText("First-Ready approval rate").locator(".."),
   ).toContainText("50.0%");
 
   await page.goto(`/jobs/${jobId}?tab=results`);
@@ -223,14 +225,14 @@ test("review results, view their report, export them, and enforce Viewer access"
     await expect(
       viewer
         .getByRole("region", { name: "Report" })
-        .getByText("Top-50 approval rate")
+        .getByText("First-Ready approval rate")
         .locator(".."),
     ).toContainText("50.0%");
     await viewer.goto(`/jobs/${jobId}?tab=report`);
     await expect(
       viewer
         .getByRole("region", { name: "Report" })
-        .getByText("Top-50 approval rate")
+        .getByText("First-Ready approval rate")
         .locator(".."),
     ).toContainText("50.0%");
     const reportExport = await viewer.request.get(

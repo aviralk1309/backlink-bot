@@ -1,11 +1,13 @@
+import os
 from functools import lru_cache
+from urllib.parse import urlsplit
 
 from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
 class Settings(BaseSettings):
-    model_config = SettingsConfigDict(env_file=".env", extra="ignore")
+    model_config = SettingsConfigDict(env_file=".env.local", extra="ignore")
 
     database_url: str
     log_level: str = "INFO"
@@ -46,4 +48,18 @@ class Settings(BaseSettings):
 
 @lru_cache
 def get_settings() -> Settings:
-    return Settings()  # type: ignore[call-arg]
+    profile = os.environ.get("WORKER_ENV", "local")
+    if profile not in ("local", "production"):
+        raise ValueError("WORKER_ENV must be local or production")
+    settings = Settings(_env_file=f".env.{profile}")  # type: ignore[call-arg]
+    if not settings.database_url:
+        raise ValueError(f"Set DATABASE_URL in .env.{profile} to a restricted worker role")
+    if profile == "local" and (
+        urlsplit(settings.database_url).hostname not in ("127.0.0.1", "localhost")
+        or (
+            settings.supabase_url
+            and urlsplit(settings.supabase_url).hostname not in ("127.0.0.1", "localhost")
+        )
+    ):
+        raise ValueError("Local worker profile must use local Postgres and Storage")
+    return settings

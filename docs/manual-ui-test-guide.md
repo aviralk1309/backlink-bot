@@ -33,7 +33,7 @@ cd apps/worker
 RUNNER_ENABLED=true uv run python -m worker
 ```
 
-The worker needs these settings in `apps/worker/.env` (keep actual keys private):
+The worker needs these settings in `apps/worker/.env.local` (keep actual keys private):
 
 ```dotenv
 DATABASE_URL=postgresql://worker:worker@127.0.0.1:54322/postgres

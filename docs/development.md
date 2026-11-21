@@ -86,16 +86,16 @@ pre-commit install --hook-type commit-msg
 
 ```bash
 # Web app
-cp apps/web/.env.example apps/web/.env.local
+cp apps/web/.env.example apps/web/.env.development.local
 
 # Worker
-cp .env.example apps/worker/.env
+cp apps/worker/.env.example apps/worker/.env.local
 
 # Root (if exists)
 cp .env.example .env
 ```
 
-### Web App Environment (`.env.local`)
+### Web App Environment (`.env.development.local`)
 
 ```bash
 # Required - Supabase connection
@@ -113,20 +113,15 @@ SMTP_PORT=1025
 SMTP_USER=
 SMTP_PASS=
 
-# Optional - Development
-NODE_ENV=development
 ```
 
 **To get Supabase keys after starting the local stack:**
 ```bash
-# After running `supabase start`, get the anon key
-supabase config --local | grep anon
-
-# Get the service role key
-supabase config --local | grep service_role
+# After running `supabase start`, get the local API URL and keys
+supabase status -o env
 ```
 
-### Worker Environment (`.env`)
+### Worker Environment (`.env.local`)
 
 ```bash
 # Required - Database connection
@@ -144,6 +139,23 @@ SHUTDOWN_GRACE_SECONDS=30.0
 POOL_MAX_SIZE=10
 RUNNER_ENABLED=true
 ```
+
+### Separate cloud profile
+
+Keep cloud values in `apps/web/.env.production.local` and
+`apps/worker/.env.production`; these files are ignored by Git. Copy each app's
+`.env.example` if you need a new file, then replace its Supabase URL and keys
+with values from the same cloud project. Use a dedicated restricted `worker`
+database login for `DATABASE_URL`, not the cloud `postgres` login. Keep
+`SEARCH_ENABLED=false` until decision D4a's paid-search fixes are complete.
+For Supabase's session pooler, the worker URL uses
+`worker.<project-ref>` as its username and the existing worker-role password.
+The production worker profile refuses to start while `DATABASE_URL` is empty.
+
+From the repository root, `make dev-web` and `make dev-worker` use the local
+profiles. `make prod-web` builds and starts the web app with the cloud profile;
+`make prod-worker` selects the cloud worker profile. Browser E2E tests load the
+local web profile even though Playwright builds production-mode Next.js code.
 
 ---
 
@@ -236,7 +248,7 @@ pnpm dev
 
 The web app will be available at `http://localhost:3000`.
 
-**Note:** You need to have the Supabase local stack running (`supabase start`) and the environment variables set in `.env.local`.
+**Note:** You need to have the Supabase local stack running (`supabase start`) and the environment variables set in `.env.development.local`.
 
 ### Worker (Python)
 
@@ -358,7 +370,7 @@ pnpm e2e jobs.spec.ts
 
 **Note:** E2E tests require:
 - Local Supabase running (`supabase start`)
-- Environment variables in `apps/web/.env.local` pointing to local Supabase
+- Environment variables in `apps/web/.env.development.local` pointing to local Supabase
 - At least one Admin user created (the tests create their own test users)
 
 ---
@@ -530,8 +542,8 @@ pnpm dev
 **Problem:** "Supabase URL not configured"
 
 ```bash
-# Make sure .env.local exists with correct values
-cp .env.example .env.local
+# Make sure .env.development.local exists with local Supabase values
+cp .env.example .env.development.local
 # Edit and set NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY
 ```
 
@@ -541,7 +553,7 @@ cp .env.example .env.local
 
 ```bash
 cd apps/worker
-cp ../.env.example .env
+cp .env.example .env.local
 # Edit and set DATABASE_URL
 uv run python -m worker
 ```

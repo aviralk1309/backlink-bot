@@ -103,9 +103,16 @@ export function ReplaceUploadModal({
           const delFormData = new FormData();
           delFormData.set("job_id", jobId);
           delFormData.set("upload_id", uploadId);
-          await deleteCsvUploadAction(delFormData);
-
-          toast.success("File replaced successfully.");
+          const deleteResult = await deleteCsvUploadAction(delFormData);
+          if (deleteResult.error) {
+            setError(
+              `New file uploaded, but the old file was not removed: ${deleteResult.error}`,
+            );
+            return;
+          }
+          if (deleteResult.message?.includes("cleanup pending"))
+            toast.info("File replaced. Old file Storage cleanup pending.");
+          else toast.success("File replaced successfully.");
           setOpen(false);
         }
       } catch (err) {

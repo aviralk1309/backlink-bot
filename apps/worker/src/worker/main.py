@@ -8,7 +8,7 @@ import uuid
 import structlog
 
 from worker.config.settings import get_settings
-from worker.db.pool import open_pool
+from worker.db.pool import ensure_restricted_role, open_pool
 from worker.engine.csv_runner import CsvRunner
 from worker.engine.heartbeat import Heartbeat
 from worker.engine.link_verifier import LinkVerifier
@@ -44,7 +44,7 @@ async def run() -> None:
 
     async with open_pool(s.database_url, max_size=s.pool_max_size) as pool:
         async with pool.connection() as conn:
-            await conn.execute("select 1")
+            await ensure_restricted_role(conn)
         log.info("worker_started")
 
         async with PoliteFetcher(pool=pool) as fetcher:

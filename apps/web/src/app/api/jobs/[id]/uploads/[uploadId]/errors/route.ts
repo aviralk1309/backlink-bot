@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { AuthError, requirePermission } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { CSV_BUCKET } from "@/features/csv/limits";
+import { csvCell } from "@/features/results/export";
 
 export async function GET(
   _request: Request,
@@ -21,7 +22,7 @@ export async function GET(
 
   const { data: upload, error: uploadErr } = await supabase
     .from("csv_uploads")
-    .select("id, filename, error_report_path")
+    .select("id, filename, error_report_path, invalid_rows, empty_rows")
     .eq("id", uploadId)
     .eq("job_id", jobId)
     .maybeSingle();
@@ -59,11 +60,21 @@ export async function GET(
   if (rowsErr) {
     return new NextResponse("Failed to load errors", { status: 500 });
   }
+  if (
+    (rows?.length ?? 0) === 0 &&
+    upload.invalid_rows + upload.empty_rows > 0
+  ) {
+    return new NextResponse(
+      "Error report unavailable: staged errors were purged after import and the saved report could not be loaded.",
+      { status: 410 },
+    );
+  }
 
   const csvLines = ["row_no,raw_url,error_reason"];
   for (const r of rows ?? []) {
-    const escapedUrl = `"${(r.raw_url ?? "").replace(/"/g, '""')}"`;
-    csvLines.push(`${r.row_no},${escapedUrl},${r.error_code ?? "unknown"}`);
+    csvLines.push(
+      `${r.row_no},${csvCell(r.raw_url)},${csvCell(r.error_code ?? "unknown")}`,
+    );
   }
 
   return new NextResponse(csvLines.join("\n"), {

@@ -74,8 +74,12 @@ test("create, assign, restrict and delete a role", async ({
     const userPage = await ctx.newPage();
     await login(userPage, E2E_USER.email, E2E_PASSWORD);
 
-    await expect(userPage.getByRole("link", { name: "Jobs" })).toBeVisible();
-    await expect(userPage.getByRole("link", { name: "Reports" })).toBeVisible();
+    await expect(
+      userPage.getByRole("link", { name: "Jobs", exact: true }),
+    ).toBeVisible();
+    await expect(
+      userPage.getByRole("link", { name: "Reports", exact: true }),
+    ).toBeVisible();
     await expect(
       userPage.getByRole("link", { name: "Admin", exact: true }),
     ).toHaveCount(0);

@@ -174,6 +174,28 @@ export type Database = {
           },
         ];
       };
+      csv_storage_cleanup: {
+        Row: {
+          created_at: string;
+          job_id: string;
+          path: string;
+          upload_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          created_at?: string;
+          job_id: string;
+          path: string;
+          upload_id: string;
+        };
+        Update: {
+          created_at?: string;
+          job_id?: string;
+          path?: string;
+          upload_id?: string;
+        };
+        Relationships: [];
+      };
       csv_uploads: {
         Row: {
           claim_token: string | null;
@@ -1486,6 +1508,34 @@ export type Database = {
         };
         Relationships: [];
       };
+      profile_role_changes: {
+        Row: {
+          actor_id: string | null;
+          changed_at: string;
+          id: number;
+          new_role_id: string | null;
+          old_role_id: string | null;
+          profile_id: string;
+        };
+        ComputedFields: never;
+        Insert: {
+          actor_id?: string | null;
+          changed_at?: string;
+          id?: never;
+          new_role_id?: string | null;
+          old_role_id?: string | null;
+          profile_id: string;
+        };
+        Update: {
+          actor_id?: string | null;
+          changed_at?: string;
+          id?: never;
+          new_role_id?: string | null;
+          old_role_id?: string | null;
+          profile_id?: string;
+        };
+        Relationships: [];
+      };
       profiles: {
         Row: {
           approved_at: string | null;
@@ -1667,6 +1717,7 @@ export type Database = {
           outcome: string;
         }[];
       };
+      can_assign_role: { Args: { p_role_id: string }; Returns: boolean };
       claim_budgeted_query: {
         Args: {
           p_lease_seconds?: number;

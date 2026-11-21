@@ -15,6 +15,9 @@ const DB_ERRORS: Record<string, string> = {
   invalid_permission:
     "One of the permissions is not recognized. Reload and try again.",
   role_not_found: "That role no longer exists. Reload the page.",
+  role_assignment_forbidden:
+    "You cannot assign a role with permissions you do not hold.",
+  self_role_change_forbidden: "You cannot change your own role.",
   // Jobs (M2)
   job_not_ready:
     "This job is not ready to start yet. Open the job to see what is missing.",

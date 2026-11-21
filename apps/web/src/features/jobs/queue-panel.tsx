@@ -34,6 +34,10 @@ export function QueuePanel({
           {counts.pending} of {queueLimit} pending · {counts.backlog} Backlog ·{" "}
           {counts.ready} Ready total
         </p>
+        <p className="text-muted-foreground mt-1 text-xs">
+          Ready results stay visible until reviewed. Later results wait in
+          Backlog when the queue is full.
+        </p>
       </div>
       {state.error ? <Notice tone="error">{state.error}</Notice> : null}
       {state.message ? <Notice tone="success">{state.message}</Notice> : null}

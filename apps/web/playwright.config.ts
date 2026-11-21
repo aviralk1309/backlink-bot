@@ -1,5 +1,18 @@
 import { defineConfig } from "@playwright/test";
 
+try {
+  process.loadEnvFile(".env.development.local");
+} catch {
+  // CI may supply the local Supabase variables directly.
+}
+const host = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "http://invalid")
+  .hostname;
+if (host !== "127.0.0.1" && host !== "localhost") {
+  throw new Error(
+    "E2E build requires local Supabase in .env.development.local",
+  );
+}
+
 export default defineConfig({
   testDir: "./e2e",
   // Tests share one local database and two fixed users, so run in order.

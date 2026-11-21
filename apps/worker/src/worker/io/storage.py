@@ -49,6 +49,16 @@ class StorageClient:
                 )
                 removed.raise_for_status()
 
+    async def delete_file(self, path: str) -> None:
+        async with httpx.AsyncClient(timeout=60.0) as client:
+            response = await client.request(
+                "DELETE",
+                f"{self.base_url}/storage/v1/object/csv-uploads",
+                headers=self._headers(),
+                json={"prefixes": [path]},
+            )
+            response.raise_for_status()
+
     async def download_file(self, bucket: str, path: str, dest_path: Path) -> None:
         url = f"{self.base_url}/storage/v1/object/{bucket}/{path.lstrip('/')}"
         async with httpx.AsyncClient() as client:

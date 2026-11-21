@@ -29,7 +29,11 @@ and picks up queued jobs.
 
 ## Configuration
 
-The worker reads from `.env` in `apps/worker/` or environment variables:
+The worker reads `.env.local` by default, or `.env.production` when
+`WORKER_ENV=production`. `make dev-worker` and `make prod-worker` select those
+profiles. Environment variables override the selected file. Keep the database
+and Storage URLs pointed at the same Supabase project; the local profile rejects
+nonlocal URLs. The production database URL must use the restricted `worker` role.
 
 `SITE_CRAWL_ENABLED=false` and `LINK_VERIFICATION_ENABLED=false` keep the new
 site crawl and placed-link checks off. Before enabling either one, set
@@ -67,10 +71,14 @@ The job runner (M3-S7) is the orchestrator. It:
 
 Enable it with `RUNNER_ENABLED=true`. The worker logs when it picks up jobs.
 
-Pickup and gap/seed import commit together. The job remains visibly Queued until
-import finishes; other runners cannot complete it or claim its checks during
-that transaction. A crash or transient database error rolls the whole operation
-back for retry. A non-transient import error marks the job Failed with
+Pickup, gap/seed import, query planning, client-domain preservation and confirmed
+CSV staging purge commit together. The job remains visibly Queued until that
+transaction finishes; other runners cannot complete it or claim its checks.
+A crash before or after purge rolls the whole operation back for retry. Storage
+CSV files and saved error reports remain. Gap preview and per-row samples are
+only available before import; Results holds imported opportunities afterward.
+If the saved report is missing after purge, error download returns HTTP 410.
+A non-transient import error marks the job Failed with
 `import_failed:<ExceptionClass>` in its status reason and activity log.
 Pause/Stop requests concurrent with import wait for its job lock, then take
 effect. See [ADR 0014](../adr/0014-atomic-job-import.md) for the transaction
@@ -84,9 +92,15 @@ Job deletion queues Storage cleanup in `job_storage_cleanup`. The web app remove
 the job's CSV files immediately when Storage is available; the worker retries
 after 30 seconds if that attempt fails. Configure `SUPABASE_URL` and
 `SUPABASE_SERVICE_ROLE_KEY` on the worker. Check the queue and
-`job_storage_cleanup_retry_failed` logs if files remain after deletion. Keep
+`storage_cleanup_retry_failed` logs if files remain after deletion. Keep
 the queue row until the Storage API succeeds; deleting `storage.objects` via SQL
 does not remove the stored file.
+
+Deleting an individual CSV queues its raw file and error report in
+`csv_storage_cleanup` before the upload row disappears. The worker retries each
+object after 30 seconds and removes the queue row only after Storage succeeds.
+The Data tab shows a pending notice until the queue drains. Inspect this table
+and `storage_cleanup_retry_failed` logs if a deleted file remains in Storage.
 
 CSV claims expire after `CSV_LEASE_SECONDS` (default 120), renew during download,
 and retry up to `CSV_MAX_ATTEMPTS` (default 3). The runner reaps abandoned claims
@@ -126,9 +140,10 @@ Within the same priority, older rows are claimed first.
 
 ## Search execution (M8-S4/S5/S6)
 
-`SEARCH_ENABLED=false` is the default. With a worker-role database connection
-and `SERPER_API_KEY` configured, set it to `true` to run paid queries. Confirm
-M8-D2 provider rate limits and M8-D3 location mapping before production use.
+`SEARCH_ENABLED=false` is the default. Keep paid search disabled until B-04,
+B-05 and P-04 are fixed and tested (decision D4a). The behavior below applies
+only after those gates are met, with a worker-role database connection and
+`SERPER_API_KEY` configured.
 Each worker runs up to two queries concurrently, and PostgreSQL caps each job
 at two active claims across all workers. Claims use `SKIP LOCKED` and a renewable lease;
 expired claims retry up to `MAX_ATTEMPTS` and then become `failed`.
@@ -253,11 +268,6 @@ Check:
 3. **Logs**: The worker logs errors before crashing. Look for connection errors
    or missing tables.
 
-### Worker logs "no_stage_handler"
-
-This is expected until M5 (free checks). The engine runs but does not claim
-rows. Set a handler in `apps/worker/src/worker/main.py` to enable processing.
-
 ### Lease lost warnings
 
 These appear when the database cannot extend a lease. Common causes:
@@ -272,13 +282,23 @@ The original worker drops its result. This is safe.
 ### Rows stuck in "running"
 
 A worker crashed mid-processing. After the lease expires (default 120s), the
-reaper returns the row to pending. To force immediate release:
+reaper returns retryable rows to pending and marks exhausted rows failed.
+Inspect the affected job before intervening:
 
 ```sql
--- Return all stale running rows to pending
-update opportunities 
-set check_status = 'pending', locked_by = null, lease_expires_at = null, attempts = attempts + 1
-where check_status = 'running' and lease_expires_at < now();
+select id, attempts, locked_by, lease_expires_at
+from public.opportunities
+where job_id = '<job-uuid>' and check_status = 'running'
+order by lease_expires_at;
+```
+
+If the leases have expired and the worker reaper has not run, use the bounded
+RPC as the `worker` database role. Match `p_max_attempts` to the worker's
+`MAX_ATTEMPTS` setting (default 3), record the returned counts in the incident
+log, then rerun the query above to confirm those rows left `running`:
+
+```sql
+select * from public.reap_expired_leases(p_max_attempts => 3, p_limit => 500);
 ```
 
 ### Max attempts exceeded

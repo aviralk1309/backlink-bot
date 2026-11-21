@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import csv
 import json
+import re
 import sqlite3
 import tempfile
 import uuid
@@ -27,6 +28,12 @@ from worker.urls.normalize import normalize_url
 MAX_RAW_URL_LENGTH = 4096
 BATCH_SIZE = 1000
 DEFAULT_MAX_ROWS = 2_000_000
+
+
+def safe_error_csv_cell(value: str) -> str:
+    if re.match(r"^[\s\x00]*[=+\-@＝＋－＠]|^[\t\r\n\x00]", value):
+        return f"'{value}"
+    return value
 
 
 class CsvRowLimitError(ValueError):
@@ -280,10 +287,14 @@ async def validate_and_stage_csv(
                         stats.duplicate_rows += 1
                 elif classification == "invalid":
                     stats.invalid_rows += 1
-                    error_writer.writerow([staged.row_no, staged.raw_url, staged.error_code])
+                    error_writer.writerow(
+                        [staged.row_no, safe_error_csv_cell(staged.raw_url), staged.error_code]
+                    )
                 elif classification == "empty":
                     stats.empty_rows += 1
-                    error_writer.writerow([staged.row_no, staged.raw_url, staged.error_code])
+                    error_writer.writerow(
+                        [staged.row_no, safe_error_csv_cell(staged.raw_url), staged.error_code]
+                    )
 
                 buffer.append(staged)
                 if len(buffer) >= BATCH_SIZE:

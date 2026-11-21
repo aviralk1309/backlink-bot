@@ -23,11 +23,17 @@ class Storage:
     def __init__(self) -> None:
         self.fail = True
         self.deleted: list[str] = []
+        self.deleted_files: list[str] = []
 
     async def delete_job_files(self, job_id: str) -> None:
         if self.fail:
             raise OSError("Storage unavailable")
         self.deleted.append(job_id)
+
+    async def delete_file(self, path: str) -> None:
+        if self.fail:
+            raise OSError("Storage unavailable")
+        self.deleted_files.append(path)
 
 
 async def test_failed_cleanup_is_retried() -> None:
@@ -64,4 +70,55 @@ async def test_failed_cleanup_is_retried() -> None:
                 assert count == (0,)
     finally:
         with psycopg.connect(ADMIN_URL, autocommit=True) as conn:
+            conn.execute("delete from public.job_storage_cleanup where job_id = %s", (job_id,))
+
+
+async def test_failed_csv_cleanup_is_retried() -> None:
+    job_id, upload_id = uuid.uuid4(), uuid.uuid4()
+    paths = [f"{job_id}/{upload_id}.csv", f"{job_id}/{upload_id}_errors.csv"]
+    with psycopg.connect(ADMIN_URL, autocommit=True) as conn:
+        conn.execute(
+            "insert into public.jobs (id, name) values (%s, 'CSV cleanup test')", (job_id,)
+        )
+        conn.execute(
+            """insert into public.csv_uploads
+               (id, job_id, kind, filename, storage_path, size_bytes, error_report_path)
+               values (%s, %s, 'client', 'test.csv', %s, 10, %s)""",
+            (upload_id, job_id, paths[0], paths[1]),
+        )
+        conn.execute("delete from public.csv_uploads where id = %s", (upload_id,))
+        conn.execute(
+            "update public.csv_storage_cleanup set created_at = '2000-01-01' where upload_id = %s",
+            (upload_id,),
+        )
+
+    try:
+        storage = Storage()
+        async with open_pool(WORKER_URL) as pool:
+            runner = StorageCleanupRunner(pool, storage, 1, asyncio.Event())  # type: ignore[arg-type]
+            with pytest.raises(OSError, match="Storage unavailable"):
+                await runner.tick()
+            with psycopg.connect(ADMIN_URL) as conn:
+                count = conn.execute(
+                    "select count(*) from public.csv_storage_cleanup where upload_id = %s",
+                    (upload_id,),
+                ).fetchone()
+                assert count == (2,)
+
+            storage.fail = False
+            assert await runner.tick()
+            assert await runner.tick()
+            assert set(storage.deleted_files) == set(paths)
+            with psycopg.connect(ADMIN_URL) as conn:
+                count = conn.execute(
+                    "select count(*) from public.csv_storage_cleanup where upload_id = %s",
+                    (upload_id,),
+                ).fetchone()
+                assert count == (0,)
+    finally:
+        with psycopg.connect(ADMIN_URL, autocommit=True) as conn:
+            conn.execute(
+                "delete from public.csv_storage_cleanup where upload_id = %s", (upload_id,)
+            )
+            conn.execute("delete from public.jobs where id = %s", (job_id,))
             conn.execute("delete from public.job_storage_cleanup where job_id = %s", (job_id,))

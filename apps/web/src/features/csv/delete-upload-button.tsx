@@ -33,6 +33,8 @@ export function DeleteUploadButton({
       data.set("upload_id", uploadId);
       const result = await deleteCsvUploadAction(data);
       if (result.error) toast.error(result.error);
+      else if (result.message?.includes("cleanup pending"))
+        toast.info(result.message);
       else toast.success(result.message ?? "File deleted.");
     });
   }

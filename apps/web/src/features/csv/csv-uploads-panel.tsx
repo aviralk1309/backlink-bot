@@ -1,5 +1,7 @@
 import { Loader2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { Notice } from "@/components/ui/notice";
+import { QueryRefresh as UploadStatusRefresh } from "@/features/jobs/query-refresh";
 import {
   Table,
   TableBody,
@@ -14,6 +16,7 @@ import { DeleteUploadButton } from "./delete-upload-button";
 import { GapPreviewPanel } from "./gap-preview-panel";
 import { MapColumnsButton } from "./map-columns-button";
 import {
+  countPendingCsvCleanup,
   getCsvUploadSummary,
   getJobGapDomains,
   getJobGapPreview,
@@ -38,6 +41,7 @@ export async function CsvUploadsPanel({
   canUpload: boolean;
 }) {
   const uploads = await listCsvUploads(jobId);
+  const pendingCleanup = canUpload ? await countPendingCsvCleanup(jobId) : 0;
   const canChange = canUpload && isDraft;
 
   // Fetch summaries for ready / confirmed uploads (M4-S5)
@@ -57,25 +61,42 @@ export async function CsvUploadsPanel({
     (u) => u.kind === "competitor" && u.status === "confirmed",
   );
   const [gapPreview, gapDomains] =
-    confirmedCompetitors.length > 0
+    isDraft && confirmedCompetitors.length > 0
       ? await Promise.all([getJobGapPreview(jobId), getJobGapDomains(jobId)])
       : [null, []];
 
   return (
     <div className="grid gap-8">
+      {uploads.some(
+        (u) => u.status === "mapped" || u.status === "processing",
+      ) ? (
+        <UploadStatusRefresh />
+      ) : null}
       {/* Pre-start Gap Preview (M4-S8) */}
       <section aria-labelledby="gap-preview-heading">
         <h2 id="gap-preview-heading" className="sr-only">
           Gap Preview
         </h2>
-        <GapPreviewPanel
-          preview={gapPreview}
-          domains={gapDomains}
-          confirmedCompetitorCount={confirmedCompetitors.length}
-        />
+        {isDraft ? (
+          <GapPreviewPanel
+            preview={gapPreview}
+            domains={gapDomains}
+            confirmedCompetitorCount={confirmedCompetitors.length}
+          />
+        ) : (
+          <Notice tone="info">
+            Gap preview is available before the job starts. Imported
+            opportunities are in Results.
+          </Notice>
+        )}
       </section>
 
       <section aria-labelledby="csv-files-heading" className="grid gap-3">
+        {pendingCleanup > 0 && (
+          <Notice tone="info">
+            Storage cleanup pending. Reload to check progress.
+          </Notice>
+        )}
         <div className="flex items-center justify-between">
           <h2 id="csv-files-heading" className="text-base font-semibold">
             Uploaded Files

@@ -4,7 +4,7 @@ The Next.js app provides sign-in, job setup and monitoring, CSV mapping, results
 
 ## Run locally
 
-From this directory, install dependencies and create `.env.local` from `.env.example`. Set the local Supabase URL, anon key, and server-only service role key; see [environment variables](../../docs/secrets.md).
+From this directory, install dependencies and create `.env.development.local` from `.env.example`. Set the local Supabase URL, anon key, and server-only service role key. Next.js loads `.env.development.local` for `pnpm dev` and `.env.production.local` for `pnpm build`/`pnpm start`; keep both files ignored. See [environment variables](../../docs/secrets.md).
 
 ```sh
 pnpm install --frozen-lockfile
@@ -12,6 +12,10 @@ pnpm dev
 ```
 
 The dashboard runs at `http://localhost:3000`. Supabase must be running from the repository root. To create the first admin user, follow [the bootstrap guide](../../docs/development.md#7-create-first-admin-user).
+
+From the repository root, `make prod-web` builds and starts the cloud-profile
+web app. Fill `.env.production.local` with the matching cloud Supabase values
+before using it. This command runs locally; it does not deploy anything.
 
 ## Checks
 
